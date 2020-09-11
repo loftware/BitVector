@@ -103,20 +103,23 @@ extension BitMap: BidirectionalCollection {
         return Index(index, offset: depth % Self.packingStride)
     }
 
+    /// indexFor(depth:) with added bounds checking for setters
     private func checkedIndexFor(depth: Int) -> Index {
         let index = indexFor(depth: depth)
         assert(index < endIndex)
         return index
     }
 
+    // valueAt(index:) and valueAt(depth:) are provided instead of just the
+    // subscripts that use it to avoid re-implementing this logic in getters for
+    // both the get only and the get + set implementation found in
+    // `MutableCollection` conformance.
+
     private func valueAt(index: Index) -> Bool {
         assert(index < endIndex)
         return valuePacked(in: base[index.index], offset: index.offset)
     }
 
-    // This is provided instead of just the subscripts that use it to avoid
-    // re-implementing this logic in getters for both the get only and the
-    // get + set implementation found in `MutableCollection` conformance.
     /// The value `depth` bits away from the value at `startIndex`.
     private func valueAt(depth: Int) -> Bool {
         return valueAt(index: indexFor(depth: depth))
