@@ -6,7 +6,7 @@ final class BitCollectionTests: XCTestCase {
     let bc = BitMap(BitCollectionTests.base)
 
     func testBitmaskForOffset() {
-        XCTAssertEqual(bc.self.packingStride, 8)
+        XCTAssertEqual(type(of: bc).packingStride, 8)
         XCTAssertEqual(bc.bitmaskFor(offset: 0), 0b1000_0000)
         XCTAssertEqual(bc.bitmaskFor(offset: 1), 0b0100_0000)
         XCTAssertEqual(bc.bitmaskFor(offset: 2), 0b0010_0000)
@@ -65,15 +65,30 @@ final class BitCollectionTests: XCTestCase {
         XCTAssertFalse(bc[15])
     }
 
+    func testPackedIntegerAccess() {
+        XCTAssertEqual(bc[packedInteger: 0], 0b1100_1001)
+        XCTAssertEqual(bc[packedInteger: 1], 0b1111_0000)
+    }
+
     func testMutationStandardIndexing() {
         var mut = bc
-        // TODO: Write tests
+        XCTAssertFalse(mut[BitMap.Index(0, offset: 3)])
+        mut[BitMap.Index(0, offset: 3)] = true
+        XCTAssertTrue(mut[BitMap.Index(0, offset: 3)])
+
+        XCTAssertEqual(mut[packedInteger: 0], 0b1101_1001)
+
+        XCTAssertTrue(mut[BitMap.Index(1, offset: 0)])
+        mut[BitMap.Index(1, offset: 0)] = false
+        XCTAssertFalse(mut[BitMap.Index(1, offset: 0)])
+        XCTAssertEqual(mut[packedInteger: 1], 0b0111_0000)
     }
 
     static var allTests = [
         ("testBitmaskForOffset", testBitmaskForOffset),
         ("testPackedValueAtOffset", testPackedValueAtOffset),
         ("testIntIndexing", testIntIndexing),
-        ("testMutationStandardIndexing", testMutationStandardIndexing)
+        ("testPackedIntegerAccess", testPackedIntegerAccess),
+        ("testMutationStandardIndexing", testMutationStandardIndexing),
     ]
 }
