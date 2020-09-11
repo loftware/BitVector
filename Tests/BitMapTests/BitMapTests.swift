@@ -1,0 +1,79 @@
+import XCTest
+@testable import BitMap
+
+final class BitCollectionTests: XCTestCase {
+    static let base: [UInt8] = [0b1100_1001, 0b1111_0000]
+    let bc = BitMap(BitCollectionTests.base)
+
+    func testBitmaskForOffset() {
+        XCTAssertEqual(bc.self.packingStride, 8)
+        XCTAssertEqual(bc.bitmaskFor(offset: 0), 0b1000_0000)
+        XCTAssertEqual(bc.bitmaskFor(offset: 1), 0b0100_0000)
+        XCTAssertEqual(bc.bitmaskFor(offset: 2), 0b0010_0000)
+        XCTAssertEqual(bc.bitmaskFor(offset: 3), 0b0001_0000)
+        XCTAssertEqual(bc.bitmaskFor(offset: 4), 0b0000_1000)
+        XCTAssertEqual(bc.bitmaskFor(offset: 5), 0b0000_0100)
+        XCTAssertEqual(bc.bitmaskFor(offset: 6), 0b0000_0010)
+        XCTAssertEqual(bc.bitmaskFor(offset: 7), 0b0000_0001)
+        // try it with other int sizes
+        let bc2 = BitMap([UInt32]())
+        XCTAssertEqual(bc2.bitmaskFor(offset:3),
+            0b0001_0000_0000_0000_0000_0000_0000_0000)
+    }
+
+    func testPackedValueAtOffset() {
+        let base: [UInt8] = [0b1100_1001, 0b1111_0000]
+        let bc = BitMap(base)
+        XCTAssertTrue(bc[BitMap.Index(0, offset: 0)])
+        XCTAssertTrue(bc[BitMap.Index(0, offset: 1)])
+        XCTAssertFalse(bc[BitMap.Index(0, offset: 2)])
+        XCTAssertFalse(bc[BitMap.Index(0, offset: 3)])
+        XCTAssertTrue(bc[BitMap.Index(0, offset: 4)])
+        XCTAssertFalse(bc[BitMap.Index(0, offset: 5)])
+        XCTAssertFalse(bc[BitMap.Index(0, offset: 6)])
+        XCTAssertTrue(bc[BitMap.Index(0, offset: 7)])
+        // second element
+        XCTAssertTrue(bc[BitMap.Index(1, offset: 0)])
+        XCTAssertTrue(bc[BitMap.Index(1, offset: 1)])
+        XCTAssertTrue(bc[BitMap.Index(1, offset: 2)])
+        XCTAssertTrue(bc[BitMap.Index(1, offset: 3)])
+        XCTAssertFalse(bc[BitMap.Index(1, offset: 4)])
+        XCTAssertFalse(bc[BitMap.Index(1, offset: 5)])
+        XCTAssertFalse(bc[BitMap.Index(1, offset: 6)])
+        XCTAssertFalse(bc[BitMap.Index(1, offset: 7)])
+    }
+
+    func testIntIndexing() {
+        // check all the ones are true
+        XCTAssertTrue(bc[0])
+        XCTAssertTrue(bc[1])
+        XCTAssertTrue(bc[4])
+        XCTAssertTrue(bc[7])
+        XCTAssertTrue(bc[8])
+        XCTAssertTrue(bc[9])
+        XCTAssertTrue(bc[10])
+        XCTAssertTrue(bc[11])
+
+        // check all the zeroes are false
+        XCTAssertFalse(bc[2])
+        XCTAssertFalse(bc[3])
+        XCTAssertFalse(bc[5])
+        XCTAssertFalse(bc[6])
+        XCTAssertFalse(bc[12])
+        XCTAssertFalse(bc[13])
+        XCTAssertFalse(bc[14])
+        XCTAssertFalse(bc[15])
+    }
+
+    func testMutationStandardIndexing() {
+        var mut = bc
+        // TODO: Write tests
+    }
+
+    static var allTests = [
+        ("testBitmaskForOffset", testBitmaskForOffset),
+        ("testPackedValueAtOffset", testPackedValueAtOffset),
+        ("testIntIndexing", testIntIndexing),
+        ("testMutationStandardIndexing", testMutationStandardIndexing)
+    ]
+}
