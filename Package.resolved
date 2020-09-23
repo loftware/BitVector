@@ -1,0 +1,25 @@
+{
+  "object": {
+    "pins": [
+      {
+        "package": "LoftNumerics_IntegerDivision",
+        "repositoryURL": "git@github.com:loftware/integer-division.git",
+        "state": {
+          "branch": "initial-implementation",
+          "revision": "3c7c4b1073cf83132079b2f4b9e61e7dfdd10885",
+          "version": null
+        }
+      },
+      {
+        "package": "LoftNumerics_Modulo",
+        "repositoryURL": "git@github.com:loftware/modulo.git",
+        "state": {
+          "branch": "initial-implementation",
+          "revision": "1c5c6cf0e933ed714972b759fc3c7ebab31cc96c",
+          "version": null
+        }
+      }
+    ]
+  },
+  "version": 1
+}

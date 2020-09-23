@@ -84,11 +84,37 @@ final class BitCollectionTests: XCTestCase {
         XCTAssertEqual(mut[packedInteger: 1], 0b0111_0000)
     }
 
+    func testNewOffsetsFor() {
+        var (a, b): (Int, Int)
+        (a, b) = type(of: bc).newOffsetsFor(growth: 0, oldOffset: 4)
+        XCTAssertEqual(a, 0)
+        XCTAssertEqual(b, 0)
+        (a, b) = type(of: bc).newOffsetsFor(growth: 4, oldOffset: 4)
+        XCTAssertEqual(a, 0)
+        XCTAssertEqual(b, -4)
+        (a, b) = type(of: bc).newOffsetsFor(growth: 5, oldOffset: 4)
+        XCTAssertEqual(a, 1)
+        XCTAssertEqual(b, -3)
+        (a, b) = type(of: bc).newOffsetsFor(growth: 6, oldOffset: 4)
+        XCTAssertEqual(a, 1)
+        XCTAssertEqual(b, -2)
+        (a, b) = type(of: bc).newOffsetsFor(growth: 12, oldOffset: 4)
+        XCTAssertEqual(a, 1)
+        XCTAssertEqual(b, -4)
+        (a, b) = type(of: bc).newOffsetsFor(growth: 13, oldOffset: 4)
+        XCTAssertEqual(a, 2)
+        XCTAssertEqual(b, -3)
+        (a, b) = type(of: bc).newOffsetsFor(growth: -5, oldOffset: 4)
+        XCTAssertEqual(a, -1)
+        XCTAssertEqual(b, 3)
+    }
+
     static var allTests = [
         ("testBitmaskForOffset", testBitmaskForOffset),
         ("testPackedValueAtOffset", testPackedValueAtOffset),
         ("testIntIndexing", testIntIndexing),
         ("testPackedIntegerAccess", testPackedIntegerAccess),
         ("testMutationStandardIndexing", testMutationStandardIndexing),
+        ("testNewOffsetsFor", testNewOffsetsFor),
     ]
 }

@@ -1,3 +1,6 @@
+import LoftNumerics_Modulo
+import LoftNumerics_IntegerDivision
+
 /// A `Collection` of `Bool` that packs its values into `UnsignedInteger`s to
 /// minimize storage overhead.
 ///
@@ -69,6 +72,15 @@ extension BitMap: BidirectionalCollection {
         }
     }
 
+    static internal func newOffsetsFor(
+        growth: Int,
+        oldOffset offset: Int
+    ) -> (packedIntChange: Int, offsetChange: Int) {
+        let packedChange = (offset + growth - 1).flooringDiv(Self.packingStride)
+        let offsetChange = (offset + growth).modulo(Self.packingStride) - offset
+        return (packedChange, offsetChange)
+    }
+
     public var startIndex: Index {
         return Index(base.startIndex, offset: 0)
     }
@@ -93,6 +105,13 @@ extension BitMap: BidirectionalCollection {
                 offset: Self.packingStride - 1)
         }
         return Index(i.index, offset: i.offset - 1)
+    }
+
+    public func index(_ i: Index, offsetBy distance: Int) -> Index {
+        let (indexChange, offsetChange) = Self.newOffsetsFor(
+            growth: distance, oldOffset: i.offset)
+        return Index(base.index(i.index, offsetBy: indexChange),
+            offset: i.offset + offsetChange)
     }
 
     /// The index for the value `depth` bits away from the value at
@@ -173,4 +192,24 @@ extension BitMap: MutableCollection where Base: MutableCollection {
     }
 }
 
-// TODO: RangeReplacableCollection conformance
+extension BitMap: RangeReplaceableCollection
+where Base: RangeReplaceableCollection {
+    public init() {
+        self = .init(.init(), lastIndexOffset: 0)
+    }
+
+    internal mutating func shift() {}
+
+    public mutating func replaceSubrange<C>(
+        _ subrange: Range<Index>,
+        with newElements: C
+    ) where C : Collection, C.Element == Bool {
+        let removedCount = distance(from: subrange.lowerBound,
+            to: subrange.upperBound)
+        let insertedCount = newElements.count
+        let change = insertedCount - removedCount
+        let (packedIntChange, offsetChange) = Self.newOffsetsFor(growth: change,
+            oldOffset: endIndexOffset)
+
+    }
+}
