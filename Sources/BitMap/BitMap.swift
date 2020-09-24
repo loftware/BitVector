@@ -16,12 +16,15 @@ import LoftNumerics_IntegerDivision
 public struct BitMap<
     Base: BidirectionalCollection
 > where Base.Element: UnsignedInteger {
-    private var endIndexOffset: Int
+    public typealias SubSequence = Slice<Self>
+
+    /// One past the offset of the last bit in the collection.
+    internal var endIndexOffset: Int // internal for testing
     private var base: Base
 
     /// The amount of bits that can be packed into the underlying integer type.
     static internal var packingStride: Int {
-        MemoryLayout<Base.Element>.size * 8
+        MemoryLayout<Base.Element>.bitSize
     }
 
     /// Creates a `BitMap` wrapping the given `base` `Collection`.
@@ -62,8 +65,9 @@ extension BitMap: BidirectionalCollection {
         public let offset: Int
 
         init (_ index: Base.Index, offset: Int) {
+            assert(offset >= 0)
             self.index = index
-            self.offset = offset
+            self.offset = offset % BitMap<Base>.packingStride
         }
 
         public static func < (lhs: Index, rhs: Index) -> Bool {
@@ -86,10 +90,10 @@ extension BitMap: BidirectionalCollection {
     }
 
     public var endIndex: Index {
-        return Index(
-            base.index(before: base.endIndex),
-            offset: self.endIndexOffset
-        )
+        if endIndexOffset == Self.packingStride || endIndexOffset == 0 {
+            return Index(base.endIndex, offset: 0)
+        }
+        return Index(base.index(before: base.endIndex), offset: endIndexOffset)
     }
 
     public func index(after i: Index) -> Index {
@@ -122,6 +126,13 @@ extension BitMap: BidirectionalCollection {
         return Index(index, offset: depth % Self.packingStride)
     }
 
+    /// The number of bits away the value at `index` is from the value at
+    /// `startIndex`.
+    public func depthFor(index: Index) -> Int {
+        return base.distance(from: base.startIndex, to: index.index) *
+            Self.packingStride + index.offset
+    }
+
     /// indexFor(depth:) with added bounds checking for setters
     private func checkedIndexFor(depth: Int) -> Index {
         let index = indexFor(depth: depth)
@@ -152,10 +163,38 @@ extension BitMap: BidirectionalCollection {
     public subscript(position: BitMap.Index) -> Bool {
         valueAt(index: position)
     }
+}
 
+// Mark: Int indexed versions of `Collection` apis.
+extension BitMap {
     /// The value `depth` bits away from the value at `startIndex`.
     public subscript(position: Int) -> Bool {
         valueAt(depth: position)
+    }
+
+    /// Returns a subsequence from the start of the collection through the
+    /// specified position.
+    public func prefix(through position: Int) -> Self.SubSequence {
+        return prefix(through: indexFor(depth: position))
+    }
+
+    /// Returns a subsequence from the start of the collection up to, but not
+    /// including, the specified position.
+    public func prefix(upTo end: Int) -> Self.SubSequence {
+        return prefix(upTo: indexFor(depth: end))
+    }
+
+    /// Returns a subsequence from the specified position to the end of the
+    /// collection.
+    public func suffix(from start: Int) -> Self.SubSequence {
+        return suffix(from: indexFor(depth: start))
+    }
+
+    /// Accesses a contiguous subrange of the collection’s elements.
+    public subscript(bounds: Range<Int>) -> Self.SubSequence {
+        return self[
+            indexFor(depth: bounds.lowerBound) ..<
+            indexFor(depth: bounds.upperBound)]
     }
 }
 
@@ -184,11 +223,31 @@ extension BitMap: MutableCollection where Base: MutableCollection {
             }
         }
     }
+}
 
+// Mark: Int indexed versions of `MutableCollection` apis.
+extension BitMap where Base: MutableCollection {
     /// The value `depth` bits away from the value at `startIndex`.
     public subscript(position: Int) -> Bool {
         get { valueAt(depth: position) }
         set(newValue) { self[checkedIndexFor(depth: position)] = newValue }
+    }
+
+    /// Exchanges the values at the specified positions in the collection.
+    public mutating func swapAt(_ i: Int, _ j: Int) {
+        swapAt(indexFor(depth: i), indexFor(depth: j))
+    }
+
+    /// Accesses a contiguous subrange of the collection’s elements.
+    public subscript(position: Range<Int>) -> Self.SubSequence {
+        get {
+            self[indexFor(depth: position.lowerBound) ..<
+                indexFor(depth: position.upperBound)]
+        }
+        set(newValue) {
+            self[indexFor(depth: position.lowerBound) ..<
+                indexFor(depth: position.upperBound)] = newValue
+        }
     }
 }
 
@@ -198,18 +257,77 @@ where Base: RangeReplaceableCollection {
         self = .init(.init(), lastIndexOffset: 0)
     }
 
-    internal mutating func shift() {}
-
-    public mutating func replaceSubrange<C>(
+   // TODO: Provide an in place implementation of this when we have
+   // MutableCollection conformance.
+   public mutating func replaceSubrange<C>(
         _ subrange: Range<Index>,
         with newElements: C
     ) where C : Collection, C.Element == Bool {
-        let removedCount = distance(from: subrange.lowerBound,
-            to: subrange.upperBound)
-        let insertedCount = newElements.count
-        let change = insertedCount - removedCount
-        let (packedIntChange, offsetChange) = Self.newOffsetsFor(growth: change,
-            oldOffset: endIndexOffset)
+        var leadingBits = self[
+            Index(subrange.lowerBound.index, offset: 0)..<subrange.lowerBound]
+            .makeIterator()
+        var replacementBits = newElements.makeIterator()
+        var trailingBits = self[subrange.upperBound...].makeIterator()
 
+        func nextBit() -> Bool? {
+            leadingBits.next() ??
+                (replacementBits.next() ?? trailingBits.next())
+        }
+        // Naive implementation: replace everything from the start of the
+        // integer backing the start position through to the end of the end
+        // of the range.
+        var replacement = [Base.Element]()
+        var buffer = [Bool]()
+        buffer.reserveCapacity(Self.packingStride)
+        while let bit = nextBit() {
+            buffer.append(bit)
+            if buffer.count == Self.packingStride {
+                replacement.append(Base.Element(fromBits: buffer))
+                // TODO: Check if this is still O(n) when keepingCaparity is
+                // true.
+                buffer.removeAll(keepingCapacity: true)
+            }
+        }
+        endIndexOffset = Self.packingStride
+        // fill empty space at the end of the replacement with zeroes
+        if !buffer.isEmpty {
+            // If the buffer is partially filled, the new endIndexOffset should
+            // be moved to however filled it is
+            endIndexOffset = buffer.count
+            while buffer.count < Self.packingStride {
+                buffer.append(false)
+            }
+            replacement.append(Base.Element(fromBits: buffer))
+        }
+        base.replaceSubrange(subrange.lowerBound.index..., with: replacement)
+    }
+}
+
+ // Mark: Int indexed versions of stdlib `RangeReplaceableCollection` apis.
+extension BitMap where Base: RangeReplaceableCollection {
+    /// Replaces the specified subrange of elements with the given collection.
+    public mutating func replaceSubrange<C>(
+        _ subrange: Range<Int>,
+        with newElements: C
+    ) where C : Collection, C.Element == Bool {
+        replaceSubrange(indexFor(depth: subrange.lowerBound) ..<
+            indexFor(depth: subrange.upperBound), with: newElements)
+    }
+
+    /// Inserts a new element into the collection at the specified position.
+    public mutating func insert(_ newElement: Self.Element, at i: Int) {
+        insert(newElement, at: indexFor(depth: i))
+    }
+
+    /// Removes and returns the element at the specified position.
+    @discardableResult
+    public mutating func remove(at i: Int) -> Self.Element {
+        remove(at: indexFor(depth: i))
+    }
+
+    /// Removes the specified subrange of elements from the collection.
+    public mutating func removeSubrange(_ bounds: Range<Int>) {
+        removeSubrange(indexFor(depth: bounds.lowerBound) ..<
+            indexFor(depth: bounds.upperBound))
     }
 }

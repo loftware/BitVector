@@ -109,6 +109,137 @@ final class BitCollectionTests: XCTestCase {
         XCTAssertEqual(b, 3)
     }
 
+    func testInitFromBitArray() {
+        let a = UInt8(fromBits: [
+            true, false, true, false, true, false, true, false
+        ])
+        XCTAssertEqual(a, 0b1010_1010)
+
+        let b = UInt8(fromBits: [
+            false, false, false, false, false, false, false, true
+        ])
+        XCTAssertEqual(b, 0b0000_0001)
+
+        let c = UInt8(fromBits: [
+            true, true, true, true, true, true, true, true
+        ])
+        XCTAssertEqual(c, 0b1111_1111)
+
+        let d = UInt8(fromBits: [
+            false, false, false, false, false, false, false, false
+        ])
+        XCTAssertEqual(d, 0b0000_0000)
+    }
+
+    func testInitSplicing() {
+        let a = UInt8(splicing: 0b1010_0101, with: 0b0101_1010, offset: 6)
+        XCTAssertEqual(a, 0b1010_0110)
+        let b = UInt8(splicing: 134, with: 0b0101_0101, offset: 0)
+        XCTAssertEqual(b, 0b0101_0101)
+        let c = UInt8(splicing: 0b0101_0101, with: 134, offset: 8)
+        XCTAssertEqual(c, 0b0101_0101)
+    }
+
+    func testBits() {
+        XCTAssertEqual((0b0101_1010 as UInt8).bits, [
+            false, true, false, true, true, false, true, false
+        ])
+    }
+
+    func testReplaceSubrangeDeletion() {
+        // delete from end
+        var mut = bc
+        mut.replaceSubrange(.init(1, offset: 2)..<(.init(2, offset: 0)),
+            with: [])
+        XCTAssertEqual(Array(mut), [
+            true, true, false, false, true, false, false, true,
+            true, true
+        ])
+        XCTAssertEqual(mut.endIndexOffset, 2)
+
+        // delete from start
+        mut = bc
+        mut.replaceSubrange(.init(0, offset: 0)..<(.init(0, offset: 4)),
+            with: [])
+        XCTAssertEqual(Array(mut), [
+            true, false, false, true,
+            true, true, true, true, false, false, false, false
+        ])
+        XCTAssertEqual(mut.endIndexOffset, 4)
+        // delete from center
+        mut = bc
+        mut.replaceSubrange(.init(0, offset:(6))..<(.init(1, offset: 2)),
+            with: [])
+        XCTAssertEqual(Array(mut), [
+            true, true, false, false, true, false,
+            true, true, false, false, false, false
+        ])
+    }
+
+    func testReplaceSubrangeAddition() {
+        // insert at the start
+        var mut = bc
+        mut.replaceSubrange(.init(0, offset: 0)..<(.init(0, offset: 0)),
+            with: [false, false, true, true])
+        XCTAssertEqual(Array(mut), [
+            false, false, true, true,
+            true, true, false, false, true, false, false, true,
+            true, true, true, true, false, false, false, false
+        ])
+
+        // insert at the end
+        mut = bc
+        mut.replaceSubrange(.init(2, offset: 0)..<(.init(2, offset: 0)),
+            with: [true, true, true, true])
+        XCTAssertEqual(Array(mut), [
+            true, true, false, false, true, false, false, true,
+            true, true, true, true, false, false, false, false,
+            true, true, true, true,
+        ])
+
+        // insert in the middle
+        mut = bc
+        mut.replaceSubrange(.init(0, offset: 6)..<(.init(0, offset: 6)),
+            with: [true, true, true, true])
+        XCTAssertEqual(Array(mut), [
+            true, true, false, false, true, false,
+            true, true, true, true,
+            false, true, true, true, true, true, false, false, false, false,
+        ])
+    }
+
+
+    func testSubrangeReplacement() {
+        // static let base: [UInt8] = [0b1100_1001, 0b1111_0000]
+        // replace the same amount of elements as removed
+        var mut = bc
+        mut.replaceSubrange(.init(0, offset: 6)..<(.init(1, offset: 2)),
+            with: [true, false, false, false])
+        XCTAssertEqual(Array(mut), [
+            true, true, false, false, true, false, true, false,
+            false, false, true, true, false, false, false, false
+        ])
+
+        // replace more elements than removed
+        mut = bc
+        mut.replaceSubrange(.init(0, offset: 6)..<(.init(1, offset: 2)),
+            with: [true, false, false, false, true, false, true, false])
+        XCTAssertEqual(Array(mut), [
+            true, true, false, false, true, false, true, false,
+            false, false, true, false, true, false,
+            true, true, false, false, false, false
+        ])
+
+        // replace less elements than removed
+        mut = bc
+        mut.replaceSubrange(.init(0, offset: 6)..<(.init(1, offset: 2)),
+            with: [true])
+        XCTAssertEqual(Array(mut), [
+            true, true, false, false, true, false, true,
+            true, true, false, false, false, false
+        ])
+    }
+
     static var allTests = [
         ("testBitmaskForOffset", testBitmaskForOffset),
         ("testPackedValueAtOffset", testPackedValueAtOffset),
@@ -116,5 +247,10 @@ final class BitCollectionTests: XCTestCase {
         ("testPackedIntegerAccess", testPackedIntegerAccess),
         ("testMutationStandardIndexing", testMutationStandardIndexing),
         ("testNewOffsetsFor", testNewOffsetsFor),
+        ("testInitFromBitArray", testInitFromBitArray),
+        ("testInitSplicing", testInitSplicing),
+        ("testReplaceSubrangeDeletion", testReplaceSubrangeDeletion),
+        ("testReplaceSubrangeAddition", testReplaceSubrangeAddition),
+        ("testSubrangeReplacement", testSubrangeReplacement),
     ]
 }
