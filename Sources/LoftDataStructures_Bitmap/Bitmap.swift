@@ -31,16 +31,16 @@ public struct Bitmap<
     ///
     /// All bits in the underlying values of `base` are considered valid
     /// entries in the `Bitmap`.
-    public init(_ base: Base) {
+    public init(wrapping base: Base) {
         self.base = base
         self.endIndexOffset = Self.packingStride
     }
 
     /// Creates a `Bitmap` wrapping the given `base` `Collection` with the last
-    /// valid bit at offset `lastIndexOffset` into the last element of `base`.
-    public init(_ base: Base, lastIndexOffset: Int) {
+    /// valid bit at offset `endIndexOffset` into the last element of `base`.
+    public init(_ base: Base, endIndexOffset: Int) {
         self.base = base
-        self.endIndexOffset = lastIndexOffset + 1
+        self.endIndexOffset = endIndexOffset
     }
 
     /// The number with only the bit at `offset` set.
@@ -55,6 +55,30 @@ public struct Bitmap<
         offset: Int
     ) -> Bool {
         return ((packed >> ((Self.packingStride - 1) - offset)) & 1) == 1
+    }
+}
+
+extension Bitmap where Base == [UInt] {
+    /// Create an `Array<UInt>` backed `Bitmap` with the given elements.
+    init<S: Sequence>(_ bits: S) where S.Element == Bool {
+        self = .init([], endIndexOffset: 0)
+        self.append(contentsOf: bits)
+    }
+
+    // When we know count is O(1), use the amount of elements to reserve
+    // space in the backing array.
+    /// Create an `Array<UInt>` backed `Bitmap` with the given elements.
+    init<C: RandomAccessCollection>(_ bits: C) where C.Element == Bool {
+        self = .init([], endIndexOffset: 0)
+        self.base.reserveCapacity(
+            bits.count.ceilingDiv(Self.packingStride))
+        self.append(contentsOf: bits)
+    }
+}
+
+extension Bitmap: ExpressibleByArrayLiteral where Base == [UInt] {
+    public init(arrayLiteral: Bool...) {
+        self = .init(arrayLiteral)
     }
 }
 
@@ -254,7 +278,7 @@ extension Bitmap where Base: MutableCollection {
 extension Bitmap: RangeReplaceableCollection
 where Base: RangeReplaceableCollection {
     public init() {
-        self = .init(.init(), lastIndexOffset: 0)
+        self = .init(.init(), endIndexOffset: 0)
     }
 
    // TODO: Provide an in place implementation of this when we have
@@ -299,7 +323,12 @@ where Base: RangeReplaceableCollection {
             }
             replacement.append(Base.Element(fromBits: buffer))
         }
+
         base.replaceSubrange(subrange.lowerBound.index..., with: replacement)
+
+        if base.isEmpty {
+            endIndexOffset = 0
+        }
     }
 }
 

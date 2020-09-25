@@ -3,7 +3,7 @@ import XCTest
 
 final class BitCollectionTests: XCTestCase {
     static let base: [UInt8] = [0b1100_1001, 0b1111_0000]
-    let bc = Bitmap(BitCollectionTests.base)
+    let bc = Bitmap(wrapping: BitCollectionTests.base)
 
     func testBitmaskForOffset() {
         XCTAssertEqual(type(of: bc).packingStride, 8)
@@ -16,14 +16,14 @@ final class BitCollectionTests: XCTestCase {
         XCTAssertEqual(bc.bitmaskFor(offset: 6), 0b0000_0010)
         XCTAssertEqual(bc.bitmaskFor(offset: 7), 0b0000_0001)
         // try it with other int sizes
-        let bc2 = Bitmap([UInt32]())
+        let bc2 = Bitmap(wrapping: [UInt32]())
         XCTAssertEqual(bc2.bitmaskFor(offset:3),
             0b0001_0000_0000_0000_0000_0000_0000_0000)
     }
 
     func testPackedValueAtOffset() {
         let base: [UInt8] = [0b1100_1001, 0b1111_0000]
-        let bc = Bitmap(base)
+        let bc = Bitmap(wrapping: base)
         XCTAssertTrue(bc[Bitmap.Index(0, offset: 0)])
         XCTAssertTrue(bc[Bitmap.Index(0, offset: 1)])
         XCTAssertFalse(bc[Bitmap.Index(0, offset: 2)])
@@ -168,12 +168,20 @@ final class BitCollectionTests: XCTestCase {
         XCTAssertEqual(mut.endIndexOffset, 4)
         // delete from center
         mut = bc
-        mut.replaceSubrange(.init(0, offset:(6))..<(.init(1, offset: 2)),
+        mut.replaceSubrange(.init(0, offset: 6)..<(.init(1, offset: 2)),
             with: [])
         XCTAssertEqual(Array(mut), [
             true, true, false, false, true, false,
             true, true, false, false, false, false
         ])
+        XCTAssertEqual(mut.endIndexOffset, 4)
+
+        // delete everything
+        mut = bc
+        mut.replaceSubrange(.init(0, offset: 0)..<bc.endIndex,
+            with: [])
+        XCTAssertEqual(Array(mut), [])
+        XCTAssertEqual(mut.endIndexOffset, 0)
     }
 
     func testReplaceSubrangeAddition() {
@@ -186,6 +194,17 @@ final class BitCollectionTests: XCTestCase {
             true, true, false, false, true, false, false, true,
             true, true, true, true, false, false, false, false
         ])
+        XCTAssertEqual(mut.endIndexOffset, 4)
+
+        mut = bc
+        mut.replaceSubrange(.init(0, offset: 0)..<(.init(0, offset: 0)),
+            with: [false, false, true, true, true, true, true, true])
+        XCTAssertEqual(Array(mut), [
+            false, false, true, true, true, true, true, true,
+            true, true, false, false, true, false, false, true,
+            true, true, true, true, false, false, false, false
+        ])
+        XCTAssertEqual(mut.endIndexOffset, 8)
 
         // insert at the end
         mut = bc
@@ -196,6 +215,7 @@ final class BitCollectionTests: XCTestCase {
             true, true, true, true, false, false, false, false,
             true, true, true, true,
         ])
+        XCTAssertEqual(mut.endIndexOffset, 4)
 
         // insert in the middle
         mut = bc
@@ -206,6 +226,7 @@ final class BitCollectionTests: XCTestCase {
             true, true, true, true,
             false, true, true, true, true, true, false, false, false, false,
         ])
+        XCTAssertEqual(mut.endIndexOffset, 4)
     }
 
 
@@ -219,6 +240,7 @@ final class BitCollectionTests: XCTestCase {
             true, true, false, false, true, false, true, false,
             false, false, true, true, false, false, false, false
         ])
+        XCTAssertEqual(mut.endIndexOffset, 8)
 
         // replace more elements than removed
         mut = bc
@@ -240,6 +262,11 @@ final class BitCollectionTests: XCTestCase {
         ])
     }
 
+    func testArrayLiteralInit() {
+        let map: Bitmap = [true, true, false, false]
+        XCTAssertEqual(Array(map), [true, true, false, false])
+    }
+
     static var allTests = [
         ("testBitmaskForOffset", testBitmaskForOffset),
         ("testPackedValueAtOffset", testPackedValueAtOffset),
@@ -252,5 +279,6 @@ final class BitCollectionTests: XCTestCase {
         ("testReplaceSubrangeDeletion", testReplaceSubrangeDeletion),
         ("testReplaceSubrangeAddition", testReplaceSubrangeAddition),
         ("testSubrangeReplacement", testSubrangeReplacement),
+        ("testArrayLiteralInit", testArrayLiteralInit)
     ]
 }
