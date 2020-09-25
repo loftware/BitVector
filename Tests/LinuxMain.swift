@@ -1,7 +1,7 @@
 import XCTest
 
-import BitMapTests
+import BitmapTests
 
 var tests = [XCTestCaseEntry]()
-tests += BitMapTests.allTests()
+tests += BitmapTests.allTests()
 XCTMain(tests)

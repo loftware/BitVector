@@ -1,9 +1,9 @@
 import XCTest
-@testable import BitMap
+@testable import LoftDataStructures_Bitmap
 
 final class BitCollectionTests: XCTestCase {
     static let base: [UInt8] = [0b1100_1001, 0b1111_0000]
-    let bc = BitMap(BitCollectionTests.base)
+    let bc = Bitmap(BitCollectionTests.base)
 
     func testBitmaskForOffset() {
         XCTAssertEqual(type(of: bc).packingStride, 8)
@@ -16,31 +16,31 @@ final class BitCollectionTests: XCTestCase {
         XCTAssertEqual(bc.bitmaskFor(offset: 6), 0b0000_0010)
         XCTAssertEqual(bc.bitmaskFor(offset: 7), 0b0000_0001)
         // try it with other int sizes
-        let bc2 = BitMap([UInt32]())
+        let bc2 = Bitmap([UInt32]())
         XCTAssertEqual(bc2.bitmaskFor(offset:3),
             0b0001_0000_0000_0000_0000_0000_0000_0000)
     }
 
     func testPackedValueAtOffset() {
         let base: [UInt8] = [0b1100_1001, 0b1111_0000]
-        let bc = BitMap(base)
-        XCTAssertTrue(bc[BitMap.Index(0, offset: 0)])
-        XCTAssertTrue(bc[BitMap.Index(0, offset: 1)])
-        XCTAssertFalse(bc[BitMap.Index(0, offset: 2)])
-        XCTAssertFalse(bc[BitMap.Index(0, offset: 3)])
-        XCTAssertTrue(bc[BitMap.Index(0, offset: 4)])
-        XCTAssertFalse(bc[BitMap.Index(0, offset: 5)])
-        XCTAssertFalse(bc[BitMap.Index(0, offset: 6)])
-        XCTAssertTrue(bc[BitMap.Index(0, offset: 7)])
+        let bc = Bitmap(base)
+        XCTAssertTrue(bc[Bitmap.Index(0, offset: 0)])
+        XCTAssertTrue(bc[Bitmap.Index(0, offset: 1)])
+        XCTAssertFalse(bc[Bitmap.Index(0, offset: 2)])
+        XCTAssertFalse(bc[Bitmap.Index(0, offset: 3)])
+        XCTAssertTrue(bc[Bitmap.Index(0, offset: 4)])
+        XCTAssertFalse(bc[Bitmap.Index(0, offset: 5)])
+        XCTAssertFalse(bc[Bitmap.Index(0, offset: 6)])
+        XCTAssertTrue(bc[Bitmap.Index(0, offset: 7)])
         // second element
-        XCTAssertTrue(bc[BitMap.Index(1, offset: 0)])
-        XCTAssertTrue(bc[BitMap.Index(1, offset: 1)])
-        XCTAssertTrue(bc[BitMap.Index(1, offset: 2)])
-        XCTAssertTrue(bc[BitMap.Index(1, offset: 3)])
-        XCTAssertFalse(bc[BitMap.Index(1, offset: 4)])
-        XCTAssertFalse(bc[BitMap.Index(1, offset: 5)])
-        XCTAssertFalse(bc[BitMap.Index(1, offset: 6)])
-        XCTAssertFalse(bc[BitMap.Index(1, offset: 7)])
+        XCTAssertTrue(bc[Bitmap.Index(1, offset: 0)])
+        XCTAssertTrue(bc[Bitmap.Index(1, offset: 1)])
+        XCTAssertTrue(bc[Bitmap.Index(1, offset: 2)])
+        XCTAssertTrue(bc[Bitmap.Index(1, offset: 3)])
+        XCTAssertFalse(bc[Bitmap.Index(1, offset: 4)])
+        XCTAssertFalse(bc[Bitmap.Index(1, offset: 5)])
+        XCTAssertFalse(bc[Bitmap.Index(1, offset: 6)])
+        XCTAssertFalse(bc[Bitmap.Index(1, offset: 7)])
     }
 
     func testIntIndexing() {
@@ -72,15 +72,15 @@ final class BitCollectionTests: XCTestCase {
 
     func testMutationStandardIndexing() {
         var mut = bc
-        XCTAssertFalse(mut[BitMap.Index(0, offset: 3)])
-        mut[BitMap.Index(0, offset: 3)] = true
-        XCTAssertTrue(mut[BitMap.Index(0, offset: 3)])
+        XCTAssertFalse(mut[Bitmap.Index(0, offset: 3)])
+        mut[Bitmap.Index(0, offset: 3)] = true
+        XCTAssertTrue(mut[Bitmap.Index(0, offset: 3)])
 
         XCTAssertEqual(mut[packedInteger: 0], 0b1101_1001)
 
-        XCTAssertTrue(mut[BitMap.Index(1, offset: 0)])
-        mut[BitMap.Index(1, offset: 0)] = false
-        XCTAssertFalse(mut[BitMap.Index(1, offset: 0)])
+        XCTAssertTrue(mut[Bitmap.Index(1, offset: 0)])
+        mut[Bitmap.Index(1, offset: 0)] = false
+        XCTAssertFalse(mut[Bitmap.Index(1, offset: 0)])
         XCTAssertEqual(mut[packedInteger: 1], 0b0111_0000)
     }
 
