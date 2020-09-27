@@ -143,12 +143,12 @@ extension Bits: BidirectionalCollection {
             offset: i.offsetIntoElement + offsetChange)
     }
 
-    /// The index for the value `depth` bits away from the value at
+    /// The index for the value `offset` bits away from the value at
     /// `startIndex`.
-    public func indexFor(depth: Int) -> Index {
-        let distanceToIndex = depth / Self.underlyingBitWidth
+    public func index(atOffset offset: Int) -> Index {
+        let distanceToIndex = offset / Self.underlyingBitWidth
         let index = base.index(base.startIndex, offsetBy: distanceToIndex)
-        return Index(index, offset: depth % Self.underlyingBitWidth)
+        return Index(index, offset: offset % Self.underlyingBitWidth)
     }
 
     /// The number of bits away the value at `index` is from the value at
@@ -158,11 +158,11 @@ extension Bits: BidirectionalCollection {
             Self.underlyingBitWidth + index.offsetIntoElement
     }
 
-    /// indexFor(depth:) with added bounds checking for setters
-    private func checkedIndexFor(depth: Int) -> Index {
-        let index = indexFor(depth: depth)
-        assert(index < endIndex)
-        return index
+    /// index(atOffset:) with added bounds checking for setters
+    private func checkedIndex(atOffset offset: Int) -> Index {
+        let i = index(atOffset: offset)
+        assert(i < endIndex)
+        return i
     }
 
     // valueAt(index:) and valueAt(depth:) are provided instead of just the
@@ -178,7 +178,7 @@ extension Bits: BidirectionalCollection {
 
     /// The value `depth` bits away from the value at `startIndex`.
     private func valueAt(depth: Int) -> Bool {
-        return valueAt(index: indexFor(depth: depth))
+        return valueAt(index: index(atOffset: depth))
     }
 
     /// The raw integer value in the `base` collection at `Base.Index`.
@@ -189,42 +189,45 @@ extension Bits: BidirectionalCollection {
     public subscript(position: Bits.Index) -> Bool {
         valueAt(index: position)
     }
+
 }
 
 // Mark: Int indexed versions of `Collection` apis.
 extension Bits {
-    /// The value `depth` bits away from the value at `startIndex`.
-    public subscript(position: Int) -> Bool {
-        valueAt(depth: position)
-    }
-
     /// Returns a subsequence from the start of the collection through the
     /// specified position.
     public func prefix(through position: Int) -> Self.SubSequence {
-        return prefix(through: indexFor(depth: position))
+        return prefix(through: index(atOffset: position))
     }
 
     /// Returns a subsequence from the start of the collection up to, but not
     /// including, the specified position.
     public func prefix(upTo end: Int) -> Self.SubSequence {
-        return prefix(upTo: indexFor(depth: end))
+        return prefix(upTo: index(atOffset: end))
     }
 
     /// Returns a subsequence from the specified position to the end of the
     /// collection.
     public func suffix(from start: Int) -> Self.SubSequence {
-        return suffix(from: indexFor(depth: start))
-    }
-
-    /// Accesses a contiguous subrange of the collection’s elements.
-    public subscript(bounds: Range<Int>) -> Self.SubSequence {
-        return self[
-            indexFor(depth: bounds.lowerBound) ..<
-            indexFor(depth: bounds.upperBound)]
+        return suffix(from: index(atOffset: start))
     }
 }
 
-extension Bits: RandomAccessCollection where Base: RandomAccessCollection {}
+extension Bits: RandomAccessCollection where Base: RandomAccessCollection {
+    /// The value `depth` bits away from the value at `startIndex`.
+    @_disfavoredOverload // avoid confilcts with `MutableCollection` version
+    public subscript(position: Int) -> Bool {
+        get { valueAt(depth: position) }
+    }
+
+    /// Accesses a contiguous subrange of the collection’s elements.
+    @_disfavoredOverload // avoid conflicts with `MutableCollection` version
+    public subscript(bounds: Range<Int>) -> Self.SubSequence {
+        return self[
+            index(atOffset: bounds.lowerBound) ..<
+            index(atOffset: bounds.upperBound)]
+    }
+}
 
 extension Bits: MutableCollection where Base: MutableCollection {
     /// The raw integer value in the `base` collection at `Base.Index`.
@@ -256,23 +259,23 @@ extension Bits where Base: MutableCollection {
     /// The value `depth` bits away from the value at `startIndex`.
     public subscript(position: Int) -> Bool {
         get { valueAt(depth: position) }
-        set(newValue) { self[checkedIndexFor(depth: position)] = newValue }
+        set(newValue) { self[checkedIndex(atOffset: position)] = newValue }
     }
 
     /// Exchanges the values at the specified positions in the collection.
     public mutating func swapAt(_ i: Int, _ j: Int) {
-        swapAt(indexFor(depth: i), indexFor(depth: j))
+        swapAt(index(atOffset: i), index(atOffset: j))
     }
 
     /// Accesses a contiguous subrange of the collection’s elements.
     public subscript(position: Range<Int>) -> Self.SubSequence {
         get {
-            self[indexFor(depth: position.lowerBound) ..<
-                indexFor(depth: position.upperBound)]
+            self[index(atOffset: position.lowerBound) ..<
+                index(atOffset: position.upperBound)]
         }
         set(newValue) {
-            self[indexFor(depth: position.lowerBound) ..<
-                indexFor(depth: position.upperBound)] = newValue
+            self[index(atOffset: position.lowerBound) ..<
+                index(atOffset: position.upperBound)] = newValue
         }
     }
 }
@@ -343,24 +346,24 @@ extension Bits where Base: RangeReplaceableCollection {
         _ subrange: Range<Int>,
         with newElements: C
     ) where C : Collection, C.Element == Bool {
-        replaceSubrange(indexFor(depth: subrange.lowerBound) ..<
-            indexFor(depth: subrange.upperBound), with: newElements)
+        replaceSubrange(index(atOffset: subrange.lowerBound) ..<
+            index(atOffset: subrange.upperBound), with: newElements)
     }
 
     /// Inserts a new element into the collection at the specified position.
     public mutating func insert(_ newElement: Self.Element, at i: Int) {
-        insert(newElement, at: indexFor(depth: i))
+        insert(newElement, at: index(atOffset: i))
     }
 
     /// Removes and returns the element at the specified position.
     @discardableResult
     public mutating func remove(at i: Int) -> Self.Element {
-        remove(at: indexFor(depth: i))
+        remove(at: index(atOffset: i))
     }
 
     /// Removes the specified subrange of elements from the collection.
     public mutating func removeSubrange(_ bounds: Range<Int>) {
-        removeSubrange(indexFor(depth: bounds.lowerBound) ..<
-            indexFor(depth: bounds.upperBound))
+        removeSubrange(index(atOffset: bounds.lowerBound) ..<
+            index(atOffset: bounds.upperBound))
     }
 }
