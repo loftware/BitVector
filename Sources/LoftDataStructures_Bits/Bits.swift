@@ -4,7 +4,7 @@ import LoftNumerics_IntegerDivision
 /// A `Collection` of `Bool` that packs its values into `UnsignedInteger`s to
 /// minimize storage overhead.
 ///
-/// `Bitmap` acomplishes this by wrapping a `base` `Collection` of some unsigned
+/// `Bits` acomplishes this by wrapping a `base` `Collection` of some unsigned
 /// integer type and allowing access to the underlying bits given an index
 /// into `base`, and a bit offset into the value. Values are packed from most to
 /// least significant bit in the integer.
@@ -13,7 +13,7 @@ import LoftNumerics_IntegerDivision
 /// an `Int` index. This gets you the value `n` bits away from the bit at
 /// `startIndex`. You can also access the values in the underlying integer
 /// collection using the `[packedInteger:]` subscript.
-public struct Bitmap<
+public struct Bits<
     Base: BidirectionalCollection
 > where Base.Element: UnsignedInteger {
     public typealias SubSequence = Slice<Self>
@@ -27,16 +27,16 @@ public struct Bitmap<
         MemoryLayout<Base.Element>.bitSize
     }
 
-    /// Creates a `Bitmap` wrapping the given `base` `Collection`.
+    /// Creates a `Bits` wrapping the given `base` `Collection`.
     ///
     /// All bits in the underlying values of `base` are considered valid
-    /// entries in the `Bitmap`.
+    /// entries in the `Bits`.
     public init(wrapping base: Base) {
         self.base = base
         self.endIndexOffset = Self.packingStride
     }
 
-    /// Creates a `Bitmap` wrapping the given `base` `Collection` with the last
+    /// Creates a `Bits` wrapping the given `base` `Collection` with the last
     /// valid bit at offset `endIndexOffset` into the last element of `base`.
     public init(_ base: Base, endIndexOffset: Int) {
         self.base = base
@@ -58,8 +58,8 @@ public struct Bitmap<
     }
 }
 
-extension Bitmap where Base == [UInt] {
-    /// Create an `Array<UInt>` backed `Bitmap` with the given elements.
+extension Bits where Base == [UInt] {
+    /// Create an `Array<UInt>` backed `Bits` with the given elements.
     init<S: Sequence>(_ bits: S) where S.Element == Bool {
         self = .init([], endIndexOffset: 0)
         self.append(contentsOf: bits)
@@ -67,7 +67,7 @@ extension Bitmap where Base == [UInt] {
 
     // When we know count is O(1), use the amount of elements to reserve
     // space in the backing array.
-    /// Create an `Array<UInt>` backed `Bitmap` with the given elements.
+    /// Create an `Array<UInt>` backed `Bits` with the given elements.
     init<C: RandomAccessCollection>(_ bits: C) where C.Element == Bool {
         self = .init([], endIndexOffset: 0)
         self.base.reserveCapacity(
@@ -76,14 +76,14 @@ extension Bitmap where Base == [UInt] {
     }
 }
 
-extension Bitmap: ExpressibleByArrayLiteral where Base == [UInt] {
+extension Bits: ExpressibleByArrayLiteral where Base == [UInt] {
     public init(arrayLiteral: Bool...) {
         self = .init(arrayLiteral)
     }
 }
 
-extension Bitmap: BidirectionalCollection {
-    /// A position in a `Bitmap`.
+extension Bits: BidirectionalCollection {
+    /// A position in a `Bits`.
     public struct Index: Comparable {
         public let index: Base.Index
         public let offset: Int
@@ -91,7 +91,7 @@ extension Bitmap: BidirectionalCollection {
         init (_ index: Base.Index, offset: Int) {
             assert(offset >= 0)
             self.index = index
-            self.offset = offset % Bitmap<Base>.packingStride
+            self.offset = offset % Bits<Base>.packingStride
         }
 
         public static func < (lhs: Index, rhs: Index) -> Bool {
@@ -184,13 +184,13 @@ extension Bitmap: BidirectionalCollection {
         return base[i]
     }
 
-    public subscript(position: Bitmap.Index) -> Bool {
+    public subscript(position: Bits.Index) -> Bool {
         valueAt(index: position)
     }
 }
 
 // Mark: Int indexed versions of `Collection` apis.
-extension Bitmap {
+extension Bits {
     /// The value `depth` bits away from the value at `startIndex`.
     public subscript(position: Int) -> Bool {
         valueAt(depth: position)
@@ -222,9 +222,9 @@ extension Bitmap {
     }
 }
 
-extension Bitmap: RandomAccessCollection where Base: RandomAccessCollection {}
+extension Bits: RandomAccessCollection where Base: RandomAccessCollection {}
 
-extension Bitmap: MutableCollection where Base: MutableCollection {
+extension Bits: MutableCollection where Base: MutableCollection {
     /// The raw integer value in the `base` collection at `Base.Index`.
     public subscript(packedInteger i: Base.Index) -> Base.Element {
         get { base[i] }
@@ -250,7 +250,7 @@ extension Bitmap: MutableCollection where Base: MutableCollection {
 }
 
 // Mark: Int indexed versions of `MutableCollection` apis.
-extension Bitmap where Base: MutableCollection {
+extension Bits where Base: MutableCollection {
     /// The value `depth` bits away from the value at `startIndex`.
     public subscript(position: Int) -> Bool {
         get { valueAt(depth: position) }
@@ -275,7 +275,7 @@ extension Bitmap where Base: MutableCollection {
     }
 }
 
-extension Bitmap: RangeReplaceableCollection
+extension Bits: RangeReplaceableCollection
 where Base: RangeReplaceableCollection {
     public init() {
         self = .init(.init(), endIndexOffset: 0)
@@ -333,7 +333,7 @@ where Base: RangeReplaceableCollection {
 }
 
  // Mark: Int indexed versions of stdlib `RangeReplaceableCollection` apis.
-extension Bitmap where Base: RangeReplaceableCollection {
+extension Bits where Base: RangeReplaceableCollection {
     /// Replaces the specified subrange of elements with the given collection.
     public mutating func replaceSubrange<C>(
         _ subrange: Range<Int>,
