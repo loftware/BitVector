@@ -1,13 +1,10 @@
 # LoftDataStructures_Bits
 
-`Bits` is a type which wraps any given collection type of unsigned integers,
-and provides an interface to that base collection which allows access to it as
-if it were a collection of the bits making up the elements of the underlying
-collection. This allows for an extremely compact representation for a collection
-of Bools.
+`Bits` projects any underlying collection of unsigned integers as a collection
+of `Bool`, with each element with each element of the `Bits` being true iff a corresponding bit in one of the underlying collection's elements is set.
 
-`Bits` is indexed by the `Bits.Index` type, which consists of an index into
-the wrapped collection, and a bit offset into the element at that position. It
-also provides api surface for manipulating the `Bits` as if it was indexed by
-`Int`s where the index is the distance of the requested bit from the start of
-the collection.
+`Bits` is indexed by the `Bits.Index` type, which consists of an index into the
+wrapped collection, and a bit offset into the element at that position where the bit at offset 0 in an integer is the most significant bit. It also
+provides api surface for manipulating the `Bits` as if it was indexed by `Int`s
+where the index is the distance of the requested bit from the start of the
+collection.
