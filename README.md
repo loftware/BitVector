@@ -1,6 +1,10 @@
 # LoftDataStructures_Bitmap
 
-`Bitmap` is a type which wraps any given collection type of unsigned integers, and provides an interface to that base collection which allows access to it as if it were a collection of the bits making up the elements of the underlying collection. This allows for an extremely compact representation for a collection of Bools.
+`Bitmap` is a type which wraps any given collection type of unsigned integers,
+and provides an interface to that base collection which allows access to it as
+if it were a collection of the bits making up the elements of the underlying
+collection. This allows for an extremely compact representation for a collection
+of Bools.
 
 `Bitmap` is indexed by the `Bitmap.Index` type, which consists of an index into
 the wrapped collection, and a bit offset into the element at that position. It
@@ -8,4 +12,6 @@ also provides api surface for manipulating the `Bitmap` as if it was indexed by
 `Int`s where the index is the distance of the requested bit from the start of
 the collection.
 
-The name `Bitmap` was chosen as a bitmap is defined as a mapping from some domain to bits. In the case of `Bitmap`, the domain is indexes into the underlying collection coupled with offsets.
+The name `Bitmap` was chosen as a bitmap is defined as a mapping from some
+domain to bits. In the case of `Bitmap`, the domain is indexes into the
+underlying collection coupled with offsets.
