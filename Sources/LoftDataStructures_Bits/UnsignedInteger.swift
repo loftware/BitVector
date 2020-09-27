@@ -29,15 +29,6 @@ extension UnsignedInteger {
         self = result
     }
 
-    internal var bits: [Bool] {
-        var result: [Bool] = []
-        result.reserveCapacity(MemoryLayout<Self>.bitSize)
-        for i in 0..<MemoryLayout<Self>.bitSize {
-            result.append((self >> i) & 1 == 1)
-        }
-        return result
-    }
-
     /// Creates an integer with the first `offset` bits of `a`, filling the
     /// remaining space with the trailing bits of `b`.
     internal init(splicing a: Self, with b: Self, offset: Int) {

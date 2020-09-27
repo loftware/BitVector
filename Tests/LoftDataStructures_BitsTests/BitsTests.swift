@@ -6,18 +6,18 @@ final class BitCollectionTests: XCTestCase {
     let bc = Bits(wrapping: BitCollectionTests.base)
 
     func testBitmaskForOffset() {
-        XCTAssertEqual(type(of: bc).packingStride, 8)
-        XCTAssertEqual(bc.bitmaskFor(offset: 0), 0b1000_0000)
-        XCTAssertEqual(bc.bitmaskFor(offset: 1), 0b0100_0000)
-        XCTAssertEqual(bc.bitmaskFor(offset: 2), 0b0010_0000)
-        XCTAssertEqual(bc.bitmaskFor(offset: 3), 0b0001_0000)
-        XCTAssertEqual(bc.bitmaskFor(offset: 4), 0b0000_1000)
-        XCTAssertEqual(bc.bitmaskFor(offset: 5), 0b0000_0100)
-        XCTAssertEqual(bc.bitmaskFor(offset: 6), 0b0000_0010)
-        XCTAssertEqual(bc.bitmaskFor(offset: 7), 0b0000_0001)
+        XCTAssertEqual(type(of: bc).underlyingBitWidth, 8)
+        XCTAssertEqual(bc.twoToThe(0), 0b1000_0000)
+        XCTAssertEqual(bc.twoToThe(1), 0b0100_0000)
+        XCTAssertEqual(bc.twoToThe(2), 0b0010_0000)
+        XCTAssertEqual(bc.twoToThe(3), 0b0001_0000)
+        XCTAssertEqual(bc.twoToThe(4), 0b0000_1000)
+        XCTAssertEqual(bc.twoToThe(5), 0b0000_0100)
+        XCTAssertEqual(bc.twoToThe(6), 0b0000_0010)
+        XCTAssertEqual(bc.twoToThe(7), 0b0000_0001)
         // try it with other int sizes
         let bc2 = Bits(wrapping: [UInt32]())
-        XCTAssertEqual(bc2.bitmaskFor(offset:3),
+        XCTAssertEqual(bc2.twoToThe(3),
             0b0001_0000_0000_0000_0000_0000_0000_0000)
     }
 
@@ -140,12 +140,6 @@ final class BitCollectionTests: XCTestCase {
         XCTAssertEqual(c, 0b0101_0101)
     }
 
-    func testBits() {
-        XCTAssertEqual((0b0101_1010 as UInt8).bits, [
-            false, true, false, true, true, false, true, false
-        ])
-    }
-
     func testReplaceSubrangeDeletion() {
         // delete from end
         var mut = bc
@@ -263,7 +257,7 @@ final class BitCollectionTests: XCTestCase {
     }
 
     func testArrayLiteralInit() {
-        let bits: Bits = [true, true, false, false]
+        let bits: Bits<[UInt]> = [true, true, false, false]
         XCTAssertEqual(Array(bits), [true, true, false, false])
     }
 

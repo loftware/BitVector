@@ -6,10 +6,9 @@ import LoftNumerics_IntegerDivision
 ///
 /// `Bits` acomplishes this by wrapping a `base` `Collection` of some unsigned
 /// integer type and allowing access to the underlying bits given an index
-/// into `base`, and a bit offset into the value. Values are packed from most to
-/// least significant bit in the integer.
+/// into `base`, and a bit offset. The most significant bit of the
 ///
-/// In addition to this indexing scheme, you can also retreive values with just
+/// In addition to this indexing scheme, you can also retrieve values with just
 /// an `Int` index. This gets you the value `n` bits away from the bit at
 /// `startIndex`. You can also access the values in the underlying integer
 /// collection using the `[packedInteger:]` subscript.
@@ -18,65 +17,63 @@ public struct Bits<
 > where Base.Element: UnsignedInteger {
     public typealias SubSequence = Slice<Self>
 
-    /// One past the offset of the last bit in the collection.
-    internal var endIndexOffset: Int // internal for testing
+    /// One more than the offset into the last `Element` of the last bit in the
+    /// `Bits`.
+    internal var endIndexOffset: Int // @testable
     private var base: Base
 
-    /// The amount of bits that can be packed into the underlying integer type.
-    static internal var packingStride: Int {
+    /// The number of bits in the underlying integer type.
+    static internal var underlyingBitWidth: Int {
         MemoryLayout<Base.Element>.bitSize
     }
 
-    /// Creates a `Bits` wrapping the given `base` `Collection`.
+    /// Creates an instance whose elements are `true` iff the coresponding bit
+    /// in an element of `base` is set.
     ///
-    /// All bits in the underlying values of `base` are considered valid
-    /// entries in the `Bits`.
+    /// Each bit in an element of `base` is represented in the new instance.
     public init(wrapping base: Base) {
         self.base = base
-        self.endIndexOffset = Self.packingStride
+        self.endIndexOffset = Self.underlyingBitWidth
     }
 
-    /// Creates a `Bits` wrapping the given `base` `Collection` with the last
-    /// valid bit at offset `endIndexOffset` into the last element of `base`.
+    /// Creates an instance whose elements are `true` iff the coresponding bit
+    /// in an element of `base` is set.
+    ///
+    /// Each bit in an element of `base` is represented in the new instance
+    /// except for those `endIndexOffset` or greater bits into the last element
+    /// of `base`
     public init(_ base: Base, endIndexOffset: Int) {
         self.base = base
         self.endIndexOffset = endIndexOffset
     }
 
     /// The number with only the bit at `offset` set.
-    internal func bitmaskFor(offset: Int) -> Base.Element {
-        assert(offset >= 0 && offset < Self.packingStride)
-        return Base.Element.init(1) << ((Self.packingStride - 1) - offset)
+    internal func twoToThe(_ n: Int) -> Base.Element {
+        assert(n >= 0 && n < Self.underlyingBitWidth)
+        return Base.Element.init(1) << ((Self.underlyingBitWidth - 1) - n)
     }
 
-    /// The value packed into a `Base.Element` at the given bit offset.
+    /// If the bit `offset` bits into a `Base.Element` is set.
+    ///
+    /// The bit at an `offset` of zero is the most significant bit.
     private func valuePacked(
         in packed: Base.Element,
         offset: Int
     ) -> Bool {
-        return ((packed >> ((Self.packingStride - 1) - offset)) & 1) == 1
+        return ((packed >> ((Self.underlyingBitWidth - 1) - offset)) & 1) == 1
     }
 }
 
-extension Bits where Base == [UInt] {
-    /// Create an `Array<UInt>` backed `Bits` with the given elements.
-    init<S: Sequence>(_ bits: S) where S.Element == Bool {
-        self = .init([], endIndexOffset: 0)
-        self.append(contentsOf: bits)
-    }
-
-    // When we know count is O(1), use the amount of elements to reserve
-    // space in the backing array.
-    /// Create an `Array<UInt>` backed `Bits` with the given elements.
-    init<C: RandomAccessCollection>(_ bits: C) where C.Element == Bool {
-        self = .init([], endIndexOffset: 0)
-        self.base.reserveCapacity(
-            bits.count.ceilingDiv(Self.packingStride))
+extension Bits where Base: RangeReplaceableCollection {
+    /// Creates an instance with the given elements.
+    public init<S: Sequence>(_ bits: S) where S.Element == Bool {
+        self = .init(.init(), endIndexOffset: 0)
         self.append(contentsOf: bits)
     }
 }
 
-extension Bits: ExpressibleByArrayLiteral where Base == [UInt] {
+extension Bits: ExpressibleByArrayLiteral
+where Base: RangeReplaceableCollection {
     public init(arrayLiteral: Bool...) {
         self = .init(arrayLiteral)
     }
@@ -85,27 +82,31 @@ extension Bits: ExpressibleByArrayLiteral where Base == [UInt] {
 extension Bits: BidirectionalCollection {
     /// A position in a `Bits`.
     public struct Index: Comparable {
-        public let index: Base.Index
-        public let offset: Int
+        public let elementIndex: Base.Index
+        public let offsetIntoElement: Int
 
         init (_ index: Base.Index, offset: Int) {
             assert(offset >= 0)
-            self.index = index
-            self.offset = offset % Bits<Base>.packingStride
+            self.elementIndex = index
+            self.offsetIntoElement = offset % Bits<Base>.underlyingBitWidth
         }
 
         public static func < (lhs: Index, rhs: Index) -> Bool {
-            return lhs.index < rhs.index ||
-                (lhs.index == rhs.index && lhs.offset < rhs.offset)
+            return lhs.elementIndex < rhs.elementIndex ||
+                (lhs.elementIndex == rhs.elementIndex &&
+                    lhs.offsetIntoElement < rhs.offsetIntoElement)
         }
     }
 
+    // @testable
     static internal func newOffsetsFor(
         growth: Int,
         oldOffset offset: Int
     ) -> (packedIntChange: Int, offsetChange: Int) {
-        let packedChange = (offset + growth - 1).flooringDiv(Self.packingStride)
-        let offsetChange = (offset + growth).modulo(Self.packingStride) - offset
+        let packedChange = (offset + growth - 1).flooringDiv(
+            Self.underlyingBitWidth)
+        let offsetChange = (offset + growth).modulo(
+            Self.underlyingBitWidth) - offset
         return (packedChange, offsetChange)
     }
 
@@ -114,47 +115,47 @@ extension Bits: BidirectionalCollection {
     }
 
     public var endIndex: Index {
-        if endIndexOffset == Self.packingStride || endIndexOffset == 0 {
+        if endIndexOffset == Self.underlyingBitWidth || endIndexOffset == 0 {
             return Index(base.endIndex, offset: 0)
         }
         return Index(base.index(before: base.endIndex), offset: endIndexOffset)
     }
 
     public func index(after i: Index) -> Index {
-        if i.offset == Self.packingStride - 1 {
-            return Index(base.index(after: i.index), offset: 0)
+        if i.offsetIntoElement == Self.underlyingBitWidth - 1 {
+            return Index(base.index(after: i.elementIndex), offset: 0)
         }
-        return Index(i.index, offset: i.offset + 1)
+        return Index(i.elementIndex, offset: i.offsetIntoElement + 1)
     }
 
     public func index(before i: Index) -> Index {
-        if i.offset == 0 {
-            return Index(base.index(before: i.index),
-                offset: Self.packingStride - 1)
+        if i.offsetIntoElement == 0 {
+            return Index(base.index(before: i.elementIndex),
+                offset: Self.underlyingBitWidth - 1)
         }
-        return Index(i.index, offset: i.offset - 1)
+        return Index(i.elementIndex, offset: i.offsetIntoElement - 1)
     }
 
     public func index(_ i: Index, offsetBy distance: Int) -> Index {
         let (indexChange, offsetChange) = Self.newOffsetsFor(
-            growth: distance, oldOffset: i.offset)
-        return Index(base.index(i.index, offsetBy: indexChange),
-            offset: i.offset + offsetChange)
+            growth: distance, oldOffset: i.offsetIntoElement)
+        return Index(base.index(i.elementIndex, offsetBy: indexChange),
+            offset: i.offsetIntoElement + offsetChange)
     }
 
     /// The index for the value `depth` bits away from the value at
     /// `startIndex`.
     public func indexFor(depth: Int) -> Index {
-        let distanceToIndex = depth / Self.packingStride
+        let distanceToIndex = depth / Self.underlyingBitWidth
         let index = base.index(base.startIndex, offsetBy: distanceToIndex)
-        return Index(index, offset: depth % Self.packingStride)
+        return Index(index, offset: depth % Self.underlyingBitWidth)
     }
 
     /// The number of bits away the value at `index` is from the value at
     /// `startIndex`.
     public func depthFor(index: Index) -> Int {
-        return base.distance(from: base.startIndex, to: index.index) *
-            Self.packingStride + index.offset
+        return base.distance(from: base.startIndex, to: index.elementIndex) *
+            Self.underlyingBitWidth + index.offsetIntoElement
     }
 
     /// indexFor(depth:) with added bounds checking for setters
@@ -171,7 +172,8 @@ extension Bits: BidirectionalCollection {
 
     private func valueAt(index: Index) -> Bool {
         assert(index < endIndex)
-        return valuePacked(in: base[index.index], offset: index.offset)
+        return valuePacked(in: base[index.elementIndex],
+            offset: index.offsetIntoElement)
     }
 
     /// The value `depth` bits away from the value at `startIndex`.
@@ -237,13 +239,13 @@ extension Bits: MutableCollection where Base: MutableCollection {
         }
         set(newValue) {
             assert(position < endIndex)
-            let oldPackedValues = self[packedInteger: position.index]
+            let oldPackedValues = self[packedInteger: position.elementIndex]
             if newValue {
-                self[packedInteger: position.index] =
-                    bitmaskFor(offset: position.offset) | oldPackedValues
+                self[packedInteger: position.elementIndex] =
+                    twoToThe(position.offsetIntoElement) | oldPackedValues
             } else {
-                self[packedInteger: position.index] =
-                    ~bitmaskFor(offset: position.offset) & oldPackedValues
+                self[packedInteger: position.elementIndex] =
+                    ~twoToThe(position.offsetIntoElement) & oldPackedValues
             }
         }
     }
@@ -288,7 +290,8 @@ where Base: RangeReplaceableCollection {
         with newElements: C
     ) where C : Collection, C.Element == Bool {
         var leadingBits = self[
-            Index(subrange.lowerBound.index, offset: 0)..<subrange.lowerBound]
+            Index(subrange.lowerBound.elementIndex, offset: 0) ..<
+                subrange.lowerBound]
             .makeIterator()
         var replacementBits = newElements.makeIterator()
         var trailingBits = self[subrange.upperBound...].makeIterator()
@@ -302,29 +305,30 @@ where Base: RangeReplaceableCollection {
         // of the range.
         var replacement = [Base.Element]()
         var buffer = [Bool]()
-        buffer.reserveCapacity(Self.packingStride)
+        buffer.reserveCapacity(Self.underlyingBitWidth)
         while let bit = nextBit() {
             buffer.append(bit)
-            if buffer.count == Self.packingStride {
+            if buffer.count == Self.underlyingBitWidth {
                 replacement.append(Base.Element(fromBits: buffer))
                 // TODO: Check if this is still O(n) when keepingCaparity is
                 // true.
                 buffer.removeAll(keepingCapacity: true)
             }
         }
-        endIndexOffset = Self.packingStride
+        endIndexOffset = Self.underlyingBitWidth
         // fill empty space at the end of the replacement with zeroes
         if !buffer.isEmpty {
             // If the buffer is partially filled, the new endIndexOffset should
             // be moved to however filled it is
             endIndexOffset = buffer.count
-            while buffer.count < Self.packingStride {
+            while buffer.count < Self.underlyingBitWidth {
                 buffer.append(false)
             }
             replacement.append(Base.Element(fromBits: buffer))
         }
 
-        base.replaceSubrange(subrange.lowerBound.index..., with: replacement)
+        base.replaceSubrange(subrange.lowerBound.elementIndex...,
+            with: replacement)
 
         if base.isEmpty {
             endIndexOffset = 0
