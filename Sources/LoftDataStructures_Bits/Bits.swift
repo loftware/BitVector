@@ -1,21 +1,15 @@
 import LoftNumerics_Modulo
 import LoftNumerics_IntegerDivision
 
-/// A `Collection` of `Bool` that packs its values into `UnsignedInteger`s to
+/// A `Collection` of `Bool` that packs its values into `BinaryInteger`s to
 /// minimize storage overhead.
 ///
-/// `Bits` acomplishes this by wrapping a `base` `Collection` of some unsigned
-/// integer type and allowing access to the underlying bits given an index
-/// into `base`, and a bit offset. The most significant bit of the
-///
-/// In addition to this indexing scheme, you can also retrieve values with just
-/// an `Int` index. This gets you the value `n` bits away from the bit at
-/// `startIndex`. You can also access the values in the underlying integer
-/// collection using the `[packedInteger:]` subscript.
+/// `Bits` acomplishes this by wrapping a `base` `Collection` of some
+/// integer type and allowing access to the underlying bits given a offset in
+/// bits into the collection.
 public struct Bits<
     Base: RandomAccessCollection
 > where Base.Element: BinaryInteger {
-    public typealias SubSequence = Slice<Self>
     /// One more than the offset into the last `Element` of the last bit in the
     /// `Bits`.
     internal var endIndexOffset: Int // @testable
@@ -117,26 +111,10 @@ extension Bits: RandomAccessCollection {
         return (wordIndex, position % Self.underlyingBitWidth)
     }
 
-    /*
-    /// The number of bits away the value at `index` is from the value at
-    /// `startIndex`.
-    public func depthFor(index: Index) -> Int {
-        return base.distance(from: base.startIndex, to: index.wordIndex) *
-            Self.underlyingBitWidth + index.offsetIntoWord
-    }
-    */
-
-    /// index(atOffset:) with added bounds checking for setters
-    private func assertInBounds(_ index: Int) -> Int {
-        assert(index < endIndex)
-        return index
-    }
-
-    // valueAt(index:) and valueAt(depth:) are provided instead of just the
-    // subscripts that use it to avoid re-implementing this logic in getters for
-    // both the get only and the get + set implementation found in
-    // `MutableCollection` conformance.
-
+    // valueAt(index:) is provided instead of just the subscripts that use it to
+    // avoid re-implementing this logic in getters for both the get only and the
+    // get + set implementation found in `MutableCollection` conformance.
+    /// If the bit at the given index into the `Bits` is set.
     private func valueAt(index: Int) -> Bool {
         let (wordIndex, offsetIntoWord) = wordIndexAndOffset(for: index)
         return valuePacked(in: base[wordIndex], offset: offsetIntoWord)
@@ -147,7 +125,6 @@ extension Bits: RandomAccessCollection {
         return base[i]
     }
 
-    /// The value `depth` bits away from the value at `startIndex`.
     public subscript(position: Int) -> Bool {
         get { valueAt(index: position) }
     }
