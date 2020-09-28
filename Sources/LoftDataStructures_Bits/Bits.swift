@@ -18,7 +18,7 @@ public struct Bits<
     private var base: Base
 
     /// The number of bits in the underlying integer type.
-    static internal var underlyingBitWidth: Int {
+    static internal var wordSize: Int {
         MemoryLayout<Base.Element>.bitSize
     }
 
@@ -28,7 +28,7 @@ public struct Bits<
     /// Each bit in an element of `base` is represented in the new instance.
     public init(wrapping base: Base) {
         self.base = base
-        self.endIndexOffset = Self.underlyingBitWidth
+        self.endIndexOffset = Self.wordSize
     }
 
     /// Creates an instance whose elements are `true` iff the coresponding bit
@@ -44,8 +44,8 @@ public struct Bits<
 
     /// The integer with only the bit at `n` set.
     internal func nthBitSet(_ n: Int) -> Base.Element {
-        assert(n >= 0 && n < Self.underlyingBitWidth)
-        return Base.Element.init(1) << ((Self.underlyingBitWidth - 1) - n)
+        assert(n >= 0 && n < Self.wordSize)
+        return Base.Element.init(1) << ((Self.wordSize - 1) - n)
     }
 
     /// If the bit `offset` bits into a `Base.Element` is set.
@@ -55,7 +55,7 @@ public struct Bits<
         in packed: Base.Element,
         offset: Int
     ) -> Bool {
-        return ((packed >> ((Self.underlyingBitWidth - 1) - offset)) & 1) == 1
+        return ((packed >> ((Self.wordSize - 1) - offset)) & 1) == 1
     }
 }
 
@@ -80,12 +80,12 @@ extension Bits: RandomAccessCollection {
     }
 
     public var endIndex: Int {
-        if endIndexOffset == Self.underlyingBitWidth || endIndexOffset == 0 {
+        if endIndexOffset == Self.wordSize || endIndexOffset == 0 {
             return base.distance(from: base.startIndex, to: base.endIndex)
-                * Self.underlyingBitWidth
+                * Self.wordSize
         }
         return base.distance(from: base.startIndex,
-            to: base.index(before: base.endIndex)) * Self.underlyingBitWidth
+            to: base.index(before: base.endIndex)) * Self.wordSize
                 + endIndexOffset
     }
 
@@ -106,9 +106,9 @@ extension Bits: RandomAccessCollection {
     public func wordIndexAndOffset(
         for position: Int
     ) -> (wordIndex: Base.Index, offsetIntoWord: Int) {
-        let distanceToIndex = position / Self.underlyingBitWidth
+        let distanceToIndex = position / Self.wordSize
         let wordIndex = base.index(base.startIndex, offsetBy: distanceToIndex)
-        return (wordIndex, position % Self.underlyingBitWidth)
+        return (wordIndex, position % Self.wordSize)
     }
 
     // valueAt(index:) is provided instead of just the subscripts that use it to
@@ -188,21 +188,21 @@ where Base: RangeReplaceableCollection {
         // of the range.
         var replacement = [Base.Element]()
         var buffer = [Bool]()
-        buffer.reserveCapacity(Self.underlyingBitWidth)
+        buffer.reserveCapacity(Self.wordSize)
         while let bit = nextBit() {
             buffer.append(bit)
-            if buffer.count == Self.underlyingBitWidth {
+            if buffer.count == Self.wordSize {
                 replacement.append(Base.Element(fromBits: buffer))
                 buffer.removeAll(keepingCapacity: true)
             }
         }
-        endIndexOffset = Self.underlyingBitWidth
+        endIndexOffset = Self.wordSize
         // fill empty space at the end of the buffer with zeroes
         if !buffer.isEmpty {
             // If the buffer is partially filled, the new endIndexOffset should
             // be moved to however filled it is
             endIndexOffset = buffer.count
-            while buffer.count < Self.underlyingBitWidth {
+            while buffer.count < Self.wordSize {
                 buffer.append(false)
             }
             replacement.append(Base.Element(fromBits: buffer))
