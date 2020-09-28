@@ -20,6 +20,8 @@ public struct Bits<
     /// One more than the offset into the last `Element` of the last bit in the
     /// `Bits`.
     internal var endIndexOffset: Int // @testable
+    /// The `BidirectionalCollection` containing the `BinaryIntegers` which this
+    /// this `Bits` projects the bits of.
     private var base: Base
 
     /// The number of bits in the underlying integer type.
