@@ -7,40 +7,40 @@ final class BitCollectionTests: XCTestCase {
 
     func testBitmaskForOffset() {
         XCTAssertEqual(type(of: bc).underlyingBitWidth, 8)
-        XCTAssertEqual(bc.twoToThe(0), 0b1000_0000)
-        XCTAssertEqual(bc.twoToThe(1), 0b0100_0000)
-        XCTAssertEqual(bc.twoToThe(2), 0b0010_0000)
-        XCTAssertEqual(bc.twoToThe(3), 0b0001_0000)
-        XCTAssertEqual(bc.twoToThe(4), 0b0000_1000)
-        XCTAssertEqual(bc.twoToThe(5), 0b0000_0100)
-        XCTAssertEqual(bc.twoToThe(6), 0b0000_0010)
-        XCTAssertEqual(bc.twoToThe(7), 0b0000_0001)
+        XCTAssertEqual(bc.nthBitSet(0), 0b1000_0000)
+        XCTAssertEqual(bc.nthBitSet(1), 0b0100_0000)
+        XCTAssertEqual(bc.nthBitSet(2), 0b0010_0000)
+        XCTAssertEqual(bc.nthBitSet(3), 0b0001_0000)
+        XCTAssertEqual(bc.nthBitSet(4), 0b0000_1000)
+        XCTAssertEqual(bc.nthBitSet(5), 0b0000_0100)
+        XCTAssertEqual(bc.nthBitSet(6), 0b0000_0010)
+        XCTAssertEqual(bc.nthBitSet(7), 0b0000_0001)
         // try it with other int sizes
         let bc2 = Bits(wrapping: [UInt32]())
-        XCTAssertEqual(bc2.twoToThe(3),
+        XCTAssertEqual(bc2.nthBitSet(3),
             0b0001_0000_0000_0000_0000_0000_0000_0000)
     }
 
     func testPackedValueAtOffset() {
         let base: [UInt8] = [0b1100_1001, 0b1111_0000]
         let bc = Bits(wrapping: base)
-        XCTAssertTrue(bc[Bits.Index(0, offset: 0)])
-        XCTAssertTrue(bc[Bits.Index(0, offset: 1)])
-        XCTAssertFalse(bc[Bits.Index(0, offset: 2)])
-        XCTAssertFalse(bc[Bits.Index(0, offset: 3)])
-        XCTAssertTrue(bc[Bits.Index(0, offset: 4)])
-        XCTAssertFalse(bc[Bits.Index(0, offset: 5)])
-        XCTAssertFalse(bc[Bits.Index(0, offset: 6)])
-        XCTAssertTrue(bc[Bits.Index(0, offset: 7)])
+        XCTAssertTrue(bc[0])
+        XCTAssertTrue(bc[1])
+        XCTAssertFalse(bc[2])
+        XCTAssertFalse(bc[3])
+        XCTAssertTrue(bc[4])
+        XCTAssertFalse(bc[5])
+        XCTAssertFalse(bc[6])
+        XCTAssertTrue(bc[7])
         // second element
-        XCTAssertTrue(bc[Bits.Index(1, offset: 0)])
-        XCTAssertTrue(bc[Bits.Index(1, offset: 1)])
-        XCTAssertTrue(bc[Bits.Index(1, offset: 2)])
-        XCTAssertTrue(bc[Bits.Index(1, offset: 3)])
-        XCTAssertFalse(bc[Bits.Index(1, offset: 4)])
-        XCTAssertFalse(bc[Bits.Index(1, offset: 5)])
-        XCTAssertFalse(bc[Bits.Index(1, offset: 6)])
-        XCTAssertFalse(bc[Bits.Index(1, offset: 7)])
+        XCTAssertTrue(bc[8 + 0])
+        XCTAssertTrue(bc[8 + 1])
+        XCTAssertTrue(bc[8 + 2])
+        XCTAssertTrue(bc[8 + 3])
+        XCTAssertFalse(bc[8 + 4])
+        XCTAssertFalse(bc[8 + 5])
+        XCTAssertFalse(bc[8 + 6])
+        XCTAssertFalse(bc[8 + 7])
     }
 
     func testIntIndexing() {
@@ -72,41 +72,16 @@ final class BitCollectionTests: XCTestCase {
 
     func testMutationStandardIndexing() {
         var mut = bc
-        XCTAssertFalse(mut[Bits.Index(0, offset: 3)])
-        mut[Bits.Index(0, offset: 3)] = true
-        XCTAssertTrue(mut[Bits.Index(0, offset: 3)])
+        XCTAssertFalse(mut[3])
+        mut[3] = true
+        XCTAssertTrue(mut[3])
 
         XCTAssertEqual(mut[packedInteger: 0], 0b1101_1001)
 
-        XCTAssertTrue(mut[Bits.Index(1, offset: 0)])
-        mut[Bits.Index(1, offset: 0)] = false
-        XCTAssertFalse(mut[Bits.Index(1, offset: 0)])
+        XCTAssertTrue(mut[8])
+        mut[8] = false
+        XCTAssertFalse(mut[8])
         XCTAssertEqual(mut[packedInteger: 1], 0b0111_0000)
-    }
-
-    func testNewOffsetsFor() {
-        var (a, b): (Int, Int)
-        (a, b) = type(of: bc).newOffsetsFor(growth: 0, oldOffset: 4)
-        XCTAssertEqual(a, 0)
-        XCTAssertEqual(b, 0)
-        (a, b) = type(of: bc).newOffsetsFor(growth: 4, oldOffset: 4)
-        XCTAssertEqual(a, 0)
-        XCTAssertEqual(b, -4)
-        (a, b) = type(of: bc).newOffsetsFor(growth: 5, oldOffset: 4)
-        XCTAssertEqual(a, 1)
-        XCTAssertEqual(b, -3)
-        (a, b) = type(of: bc).newOffsetsFor(growth: 6, oldOffset: 4)
-        XCTAssertEqual(a, 1)
-        XCTAssertEqual(b, -2)
-        (a, b) = type(of: bc).newOffsetsFor(growth: 12, oldOffset: 4)
-        XCTAssertEqual(a, 1)
-        XCTAssertEqual(b, -4)
-        (a, b) = type(of: bc).newOffsetsFor(growth: 13, oldOffset: 4)
-        XCTAssertEqual(a, 2)
-        XCTAssertEqual(b, -3)
-        (a, b) = type(of: bc).newOffsetsFor(growth: -5, oldOffset: 4)
-        XCTAssertEqual(a, -1)
-        XCTAssertEqual(b, 3)
     }
 
     func testInitFromBitArray() {
@@ -131,20 +106,10 @@ final class BitCollectionTests: XCTestCase {
         XCTAssertEqual(d, 0b0000_0000)
     }
 
-    func testInitSplicing() {
-        let a = UInt8(splicing: 0b1010_0101, with: 0b0101_1010, offset: 6)
-        XCTAssertEqual(a, 0b1010_0110)
-        let b = UInt8(splicing: 134, with: 0b0101_0101, offset: 0)
-        XCTAssertEqual(b, 0b0101_0101)
-        let c = UInt8(splicing: 0b0101_0101, with: 134, offset: 8)
-        XCTAssertEqual(c, 0b0101_0101)
-    }
-
     func testReplaceSubrangeDeletion() {
         // delete from end
         var mut = bc
-        mut.replaceSubrange(.init(1, offset: 2)..<(.init(2, offset: 0)),
-            with: [])
+        mut.replaceSubrange(10..<16, with: [])
         XCTAssertEqual(Array(mut), [
             true, true, false, false, true, false, false, true,
             true, true
@@ -153,8 +118,7 @@ final class BitCollectionTests: XCTestCase {
 
         // delete from start
         mut = bc
-        mut.replaceSubrange(.init(0, offset: 0)..<(.init(0, offset: 4)),
-            with: [])
+        mut.replaceSubrange(0..<4, with: [])
         XCTAssertEqual(Array(mut), [
             true, false, false, true,
             true, true, true, true, false, false, false, false
@@ -162,8 +126,7 @@ final class BitCollectionTests: XCTestCase {
         XCTAssertEqual(mut.endIndexOffset, 4)
         // delete from center
         mut = bc
-        mut.replaceSubrange(.init(0, offset: 6)..<(.init(1, offset: 2)),
-            with: [])
+        mut.replaceSubrange(6..<10, with: [])
         XCTAssertEqual(Array(mut), [
             true, true, false, false, true, false,
             true, true, false, false, false, false
@@ -172,8 +135,7 @@ final class BitCollectionTests: XCTestCase {
 
         // delete everything
         mut = bc
-        mut.replaceSubrange(.init(0, offset: 0)..<bc.endIndex,
-            with: [])
+        mut.replaceSubrange(0..<bc.endIndex, with: [])
         XCTAssertEqual(Array(mut), [])
         XCTAssertEqual(mut.endIndexOffset, 0)
     }
@@ -181,8 +143,7 @@ final class BitCollectionTests: XCTestCase {
     func testReplaceSubrangeAddition() {
         // insert at the start
         var mut = bc
-        mut.replaceSubrange(.init(0, offset: 0)..<(.init(0, offset: 0)),
-            with: [false, false, true, true])
+        mut.replaceSubrange(0..<0, with: [false, false, true, true])
         XCTAssertEqual(Array(mut), [
             false, false, true, true,
             true, true, false, false, true, false, false, true,
@@ -191,7 +152,7 @@ final class BitCollectionTests: XCTestCase {
         XCTAssertEqual(mut.endIndexOffset, 4)
 
         mut = bc
-        mut.replaceSubrange(.init(0, offset: 0)..<(.init(0, offset: 0)),
+        mut.replaceSubrange(0..<0,
             with: [false, false, true, true, true, true, true, true])
         XCTAssertEqual(Array(mut), [
             false, false, true, true, true, true, true, true,
@@ -202,8 +163,7 @@ final class BitCollectionTests: XCTestCase {
 
         // insert at the end
         mut = bc
-        mut.replaceSubrange(.init(2, offset: 0)..<(.init(2, offset: 0)),
-            with: [true, true, true, true])
+        mut.replaceSubrange(16..<16, with: [true, true, true, true])
         XCTAssertEqual(Array(mut), [
             true, true, false, false, true, false, false, true,
             true, true, true, true, false, false, false, false,
@@ -213,8 +173,7 @@ final class BitCollectionTests: XCTestCase {
 
         // insert in the middle
         mut = bc
-        mut.replaceSubrange(.init(0, offset: 6)..<(.init(0, offset: 6)),
-            with: [true, true, true, true])
+        mut.replaceSubrange(6..<6, with: [true, true, true, true])
         XCTAssertEqual(Array(mut), [
             true, true, false, false, true, false,
             true, true, true, true,
@@ -228,7 +187,7 @@ final class BitCollectionTests: XCTestCase {
         // static let base: [UInt8] = [0b1100_1001, 0b1111_0000]
         // replace the same amount of elements as removed
         var mut = bc
-        mut.replaceSubrange(.init(0, offset: 6)..<(.init(1, offset: 2)),
+        mut.replaceSubrange(6..<10,
             with: [true, false, false, false])
         XCTAssertEqual(Array(mut), [
             true, true, false, false, true, false, true, false,
@@ -238,7 +197,7 @@ final class BitCollectionTests: XCTestCase {
 
         // replace more elements than removed
         mut = bc
-        mut.replaceSubrange(.init(0, offset: 6)..<(.init(1, offset: 2)),
+        mut.replaceSubrange(6..<10,
             with: [true, false, false, false, true, false, true, false])
         XCTAssertEqual(Array(mut), [
             true, true, false, false, true, false, true, false,
@@ -248,8 +207,7 @@ final class BitCollectionTests: XCTestCase {
 
         // replace less elements than removed
         mut = bc
-        mut.replaceSubrange(.init(0, offset: 6)..<(.init(1, offset: 2)),
-            with: [true])
+        mut.replaceSubrange(6..<10, with: [true])
         XCTAssertEqual(Array(mut), [
             true, true, false, false, true, false, true,
             true, true, false, false, false, false
@@ -267,9 +225,7 @@ final class BitCollectionTests: XCTestCase {
         ("testIntIndexing", testIntIndexing),
         ("testPackedIntegerAccess", testPackedIntegerAccess),
         ("testMutationStandardIndexing", testMutationStandardIndexing),
-        ("testNewOffsetsFor", testNewOffsetsFor),
         ("testInitFromBitArray", testInitFromBitArray),
-        ("testInitSplicing", testInitSplicing),
         ("testReplaceSubrangeDeletion", testReplaceSubrangeDeletion),
         ("testReplaceSubrangeAddition", testReplaceSubrangeAddition),
         ("testSubrangeReplacement", testSubrangeReplacement),

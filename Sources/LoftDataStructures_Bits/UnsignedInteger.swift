@@ -7,13 +7,15 @@ extension MemoryLayout {
     }
 }
 
-extension UnsignedInteger {
+extension BinaryInteger {
     /// Create an integer from its representation in bits.
     ///
     /// The first element of the array is the most significant bit of the
     /// resulting integer, and the last element is the least significant bit.
     /// The number of elements in `bits` must be the same as the size in bits
     /// of the integer type.
+    // TODO: Get rid of this, we shouldn't actually need it. Just used for the
+    // current reference implementation of replaceSubrange.
     internal init(fromBits bits: [Bool]) {
         assert(bits.count == MemoryLayout<Self>.bitSize)
         var result = 0 as Self
@@ -27,18 +29,5 @@ extension UnsignedInteger {
             result += 1
         }
         self = result
-    }
-
-    /// Creates an integer with the first `offset` bits of `a`, filling the
-    /// remaining space with the trailing bits of `b`.
-    internal init(splicing a: Self, with b: Self, offset: Int) {
-        assert(offset >= 0)
-        assert(offset <= MemoryLayout<Self>.bitSize)
-        // Zero everything we're not using from a.
-        let shiftToClear = MemoryLayout<Self>.bitSize - offset
-        let usedBitsFromA = (a >> shiftToClear) << shiftToClear
-        // Zero everything we're not using from b
-        let usedBitsFromB = (b << offset) >> offset
-        self = usedBitsFromA | usedBitsFromB
     }
 }

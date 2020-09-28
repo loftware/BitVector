@@ -13,10 +13,9 @@ import LoftNumerics_IntegerDivision
 /// `startIndex`. You can also access the values in the underlying integer
 /// collection using the `[packedInteger:]` subscript.
 public struct Bits<
-    Base: BidirectionalCollection
-> where Base.Element: UnsignedInteger {
+    Base: RandomAccessCollection
+> where Base.Element: BinaryInteger {
     public typealias SubSequence = Slice<Self>
-
     /// One more than the offset into the last `Element` of the last bit in the
     /// `Bits`.
     internal var endIndexOffset: Int // @testable
@@ -49,8 +48,8 @@ public struct Bits<
         self.endIndexOffset = endIndexOffset
     }
 
-    /// The number with only the bit at `offset` set.
-    internal func twoToThe(_ n: Int) -> Base.Element {
+    /// The integer with only the bit at `n` set.
+    internal func nthBitSet(_ n: Int) -> Base.Element {
         assert(n >= 0 && n < Self.underlyingBitWidth)
         return Base.Element.init(1) << ((Self.underlyingBitWidth - 1) - n)
     }
@@ -81,90 +80,56 @@ where Base: RangeReplaceableCollection {
     }
 }
 
-extension Bits: BidirectionalCollection {
-    /// A position in a `Bits`.
-    public struct Index: Comparable {
-        public let elementIndex: Base.Index
-        public let offsetIntoElement: Int
-
-        init (_ index: Base.Index, offset: Int) {
-            assert(offset >= 0)
-            self.elementIndex = index
-            self.offsetIntoElement = offset % Bits<Base>.underlyingBitWidth
-        }
-
-        public static func < (lhs: Index, rhs: Index) -> Bool {
-            return lhs.elementIndex < rhs.elementIndex ||
-                (lhs.elementIndex == rhs.elementIndex &&
-                    lhs.offsetIntoElement < rhs.offsetIntoElement)
-        }
+extension Bits: RandomAccessCollection {
+    public var startIndex: Int {
+        return 0
     }
 
-    // @testable
-    static internal func newOffsetsFor(
-        growth: Int,
-        oldOffset offset: Int
-    ) -> (packedIntChange: Int, offsetChange: Int) {
-        let packedChange = (offset + growth - 1).flooringDiv(
-            Self.underlyingBitWidth)
-        let offsetChange = (offset + growth).modulo(
-            Self.underlyingBitWidth) - offset
-        return (packedChange, offsetChange)
-    }
-
-    public var startIndex: Index {
-        return Index(base.startIndex, offset: 0)
-    }
-
-    public var endIndex: Index {
+    public var endIndex: Int {
         if endIndexOffset == Self.underlyingBitWidth || endIndexOffset == 0 {
-            return Index(base.endIndex, offset: 0)
+            return base.distance(from: base.startIndex, to: base.endIndex)
+                * Self.underlyingBitWidth
         }
-        return Index(base.index(before: base.endIndex), offset: endIndexOffset)
+        return base.distance(from: base.startIndex,
+            to: base.index(before: base.endIndex)) * Self.underlyingBitWidth
+                + endIndexOffset
     }
 
-    public func index(after i: Index) -> Index {
-        if i.offsetIntoElement == Self.underlyingBitWidth - 1 {
-            return Index(base.index(after: i.elementIndex), offset: 0)
-        }
-        return Index(i.elementIndex, offset: i.offsetIntoElement + 1)
+    public func index(after i: Int) -> Int {
+        return i + 1
     }
 
-    public func index(before i: Index) -> Index {
-        if i.offsetIntoElement == 0 {
-            return Index(base.index(before: i.elementIndex),
-                offset: Self.underlyingBitWidth - 1)
-        }
-        return Index(i.elementIndex, offset: i.offsetIntoElement - 1)
+    public func index(before i: Int) -> Int {
+        return i - 1
     }
 
-    public func index(_ i: Index, offsetBy distance: Int) -> Index {
-        let (indexChange, offsetChange) = Self.newOffsetsFor(
-            growth: distance, oldOffset: i.offsetIntoElement)
-        return Index(base.index(i.elementIndex, offsetBy: indexChange),
-            offset: i.offsetIntoElement + offsetChange)
+    public func index(_ i: Int, offsetBy distance: Int) -> Int {
+        return i + distance
     }
 
-    /// The index for the value `offset` bits away from the value at
-    /// `startIndex`.
-    public func index(atOffset offset: Int) -> Index {
-        let distanceToIndex = offset / Self.underlyingBitWidth
-        let index = base.index(base.startIndex, offsetBy: distanceToIndex)
-        return Index(index, offset: offset % Self.underlyingBitWidth)
+    /// The index into the base collection, and offset into the word at that
+    /// index for the value `position` bits into the `Bits`.
+    public func wordIndexAndOffset(
+        for position: Int
+    ) -> (wordIndex: Base.Index, offsetIntoWord: Int) {
+        let distanceToIndex = position / Self.underlyingBitWidth
+        let wordIndex = base.index(base.startIndex, offsetBy: distanceToIndex)
+        return (wordIndex, position % Self.underlyingBitWidth)
     }
 
+    /*
     /// The number of bits away the value at `index` is from the value at
     /// `startIndex`.
     public func depthFor(index: Index) -> Int {
-        return base.distance(from: base.startIndex, to: index.elementIndex) *
-            Self.underlyingBitWidth + index.offsetIntoElement
+        return base.distance(from: base.startIndex, to: index.wordIndex) *
+            Self.underlyingBitWidth + index.offsetIntoWord
     }
+    */
 
     /// index(atOffset:) with added bounds checking for setters
-    private func checkedIndex(atOffset offset: Int) -> Index {
-        let i = index(atOffset: offset)
-        assert(i < endIndex)
-        return i
+    private func assertInBounds(_ index: Int) -> Int {
+        assert(index < endIndex)
+        return index
     }
 
     // valueAt(index:) and valueAt(depth:) are provided instead of just the
@@ -172,15 +137,9 @@ extension Bits: BidirectionalCollection {
     // both the get only and the get + set implementation found in
     // `MutableCollection` conformance.
 
-    private func valueAt(index: Index) -> Bool {
-        assert(index < endIndex)
-        return valuePacked(in: base[index.elementIndex],
-            offset: index.offsetIntoElement)
-    }
-
-    /// The value `depth` bits away from the value at `startIndex`.
-    private func valueAt(depth: Int) -> Bool {
-        return valueAt(index: index(atOffset: depth))
+    private func valueAt(index: Int) -> Bool {
+        let (wordIndex, offsetIntoWord) = wordIndexAndOffset(for: index)
+        return valuePacked(in: base[wordIndex], offset: offsetIntoWord)
     }
 
     /// The raw integer value in the `base` collection at `Base.Index`.
@@ -188,96 +147,34 @@ extension Bits: BidirectionalCollection {
         return base[i]
     }
 
-    public subscript(position: Bits.Index) -> Bool {
-        valueAt(index: position)
-    }
-
-}
-
-// Mark: Int indexed versions of `Collection` apis.
-extension Bits {
-    /// Returns a subsequence from the start of the collection through the
-    /// specified position.
-    public func prefix(through position: Int) -> Self.SubSequence {
-        return prefix(through: index(atOffset: position))
-    }
-
-    /// Returns a subsequence from the start of the collection up to, but not
-    /// including, the specified position.
-    public func prefix(upTo end: Int) -> Self.SubSequence {
-        return prefix(upTo: index(atOffset: end))
-    }
-
-    /// Returns a subsequence from the specified position to the end of the
-    /// collection.
-    public func suffix(from start: Int) -> Self.SubSequence {
-        return suffix(from: index(atOffset: start))
-    }
-}
-
-extension Bits: RandomAccessCollection where Base: RandomAccessCollection {
     /// The value `depth` bits away from the value at `startIndex`.
-    @_disfavoredOverload // avoid confilcts with `MutableCollection` version
     public subscript(position: Int) -> Bool {
-        get { valueAt(depth: position) }
-    }
-
-    /// Accesses a contiguous subrange of the collection’s elements.
-    @_disfavoredOverload // avoid conflicts with `MutableCollection` version
-    public subscript(bounds: Range<Int>) -> Self.SubSequence {
-        return self[
-            index(atOffset: bounds.lowerBound) ..<
-            index(atOffset: bounds.upperBound)]
+        get { valueAt(index: position) }
     }
 }
 
 extension Bits: MutableCollection where Base: MutableCollection {
     /// The raw integer value in the `base` collection at `Base.Index`.
     public subscript(packedInteger i: Base.Index) -> Base.Element {
-        get { base[i] }
-        set(newValue) { self.base[i] = newValue }
+        get { return base[i] }
+        set(newValue) { base[i] = newValue }
     }
 
-    public subscript(position: Index) -> Bool {
+    public subscript(position: Int) -> Bool {
         get {
             valueAt(index: position)
         }
         set(newValue) {
             assert(position < endIndex)
-            let oldPackedValues = self[packedInteger: position.elementIndex]
+            let (wordIndex, offsetIntoWord) = wordIndexAndOffset(for: position)
+            let oldPackedValues = self[packedInteger: wordIndex]
             if newValue {
-                self[packedInteger: position.elementIndex] =
-                    twoToThe(position.offsetIntoElement) | oldPackedValues
+                self[packedInteger: wordIndex] =
+                    nthBitSet(offsetIntoWord) | oldPackedValues
             } else {
-                self[packedInteger: position.elementIndex] =
-                    ~twoToThe(position.offsetIntoElement) & oldPackedValues
+                self[packedInteger: wordIndex] =
+                    ~nthBitSet(offsetIntoWord) & oldPackedValues
             }
-        }
-    }
-}
-
-// Mark: Int indexed versions of `MutableCollection` apis.
-extension Bits where Base: MutableCollection {
-    /// The value `depth` bits away from the value at `startIndex`.
-    public subscript(position: Int) -> Bool {
-        get { valueAt(depth: position) }
-        set(newValue) { self[checkedIndex(atOffset: position)] = newValue }
-    }
-
-    /// Exchanges the values at the specified positions in the collection.
-    public mutating func swapAt(_ i: Int, _ j: Int) {
-        swapAt(index(atOffset: i), index(atOffset: j))
-    }
-
-    /// Accesses a contiguous subrange of the collection’s elements.
-    public subscript(position: Range<Int>) -> Self.SubSequence {
-        get {
-            self[index(atOffset: position.lowerBound) ..<
-                index(atOffset: position.upperBound)]
-        }
-        set(newValue) {
-            self[index(atOffset: position.lowerBound) ..<
-                index(atOffset: position.upperBound)] = newValue
         }
     }
 }
@@ -288,18 +185,22 @@ where Base: RangeReplaceableCollection {
         self = .init(.init(), endIndexOffset: 0)
     }
 
-   // TODO: Provide an in place implementation of this when we have
-   // MutableCollection conformance.
-   public mutating func replaceSubrange<C>(
-        _ subrange: Range<Index>,
+    // TODO: This implementation of replace subrange allocates more storage
+    // than necessary, is lacking a fast path for a variety of cases and
+    // is inefficient due to references held in the created iterators.
+    // It is intended to be a reference implementation which passes all the
+    // provided tests. A better implementation should replace it and the tests
+    // given can help refine that improved implementation.
+    public mutating func replaceSubrange<C>(
+        _ target: Range<Int>,
         with newElements: C
     ) where C : Collection, C.Element == Bool {
-        var leadingBits = self[
-            Index(subrange.lowerBound.elementIndex, offset: 0) ..<
-                subrange.lowerBound]
+        let lowerBound = wordIndexAndOffset(for: target.lowerBound)
+        var leadingBits = self[target.lowerBound - lowerBound.offsetIntoWord ..<
+            target.lowerBound]
             .makeIterator()
         var replacementBits = newElements.makeIterator()
-        var trailingBits = self[subrange.upperBound...].makeIterator()
+        var trailingBits = self[target.upperBound...].makeIterator()
 
         func nextBit() -> Bool? {
             leadingBits.next() ??
@@ -315,13 +216,11 @@ where Base: RangeReplaceableCollection {
             buffer.append(bit)
             if buffer.count == Self.underlyingBitWidth {
                 replacement.append(Base.Element(fromBits: buffer))
-                // TODO: Check if this is still O(n) when keepingCaparity is
-                // true.
                 buffer.removeAll(keepingCapacity: true)
             }
         }
         endIndexOffset = Self.underlyingBitWidth
-        // fill empty space at the end of the replacement with zeroes
+        // fill empty space at the end of the buffer with zeroes
         if !buffer.isEmpty {
             // If the buffer is partially filled, the new endIndexOffset should
             // be moved to however filled it is
@@ -332,40 +231,11 @@ where Base: RangeReplaceableCollection {
             replacement.append(Base.Element(fromBits: buffer))
         }
 
-        base.replaceSubrange(subrange.lowerBound.elementIndex...,
+        base.replaceSubrange(lowerBound.wordIndex...,
             with: replacement)
 
         if base.isEmpty {
             endIndexOffset = 0
         }
-    }
-}
-
- // Mark: Int indexed versions of stdlib `RangeReplaceableCollection` apis.
-extension Bits where Base: RangeReplaceableCollection {
-    /// Replaces the specified subrange of elements with the given collection.
-    public mutating func replaceSubrange<C>(
-        _ subrange: Range<Int>,
-        with newElements: C
-    ) where C : Collection, C.Element == Bool {
-        replaceSubrange(index(atOffset: subrange.lowerBound) ..<
-            index(atOffset: subrange.upperBound), with: newElements)
-    }
-
-    /// Inserts a new element into the collection at the specified position.
-    public mutating func insert(_ newElement: Self.Element, at i: Int) {
-        insert(newElement, at: index(atOffset: i))
-    }
-
-    /// Removes and returns the element at the specified position.
-    @discardableResult
-    public mutating func remove(at i: Int) -> Self.Element {
-        remove(at: index(atOffset: i))
-    }
-
-    /// Removes the specified subrange of elements from the collection.
-    public mutating func removeSubrange(_ bounds: Range<Int>) {
-        removeSubrange(index(atOffset: bounds.lowerBound) ..<
-            index(atOffset: bounds.upperBound))
     }
 }
