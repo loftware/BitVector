@@ -1,6 +1,3 @@
-import LoftNumerics_Modulo
-import LoftNumerics_IntegerDivision
-
 /// A `Collection` of `Bool` that packs its values into `BinaryInteger`s to
 /// minimize storage overhead.
 ///

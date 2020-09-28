@@ -6,7 +6,7 @@ final class BitCollectionTests: XCTestCase {
     let bc = Bits(wrapping: BitCollectionTests.base)
 
     func testBitmaskForOffset() {
-        XCTAssertEqual(type(of: bc).underlyingBitWidth, 8)
+        XCTAssertEqual(type(of: bc).wordSize, 8)
         XCTAssertEqual(bc.nthBitSet(0), 0b1000_0000)
         XCTAssertEqual(bc.nthBitSet(1), 0b0100_0000)
         XCTAssertEqual(bc.nthBitSet(2), 0b0010_0000)
