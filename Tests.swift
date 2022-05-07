@@ -3,6 +3,13 @@ import LoftDataStructures_BitVector
 import LoftTest_StandardLibraryProtocolChecks
 import Foundation
 
+extension Equatable {
+  public func checkNotEqual(_ b: Self) {
+    XCTAssertNotEqual(self, b)
+    XCTAssertNotEqual(b, self)
+  }
+}
+
 final class BitVectorTests: XCTestCase {
   func testEmpty() {
     var x = BitVector()
@@ -15,6 +22,7 @@ final class BitVectorTests: XCTestCase {
     x.append(true)
     XCTAssertEqual(x.count, 1)
     XCTAssertEqual(x[0], true)
+    x.checkEquatableLaws()
   }
 
   func test1() {
@@ -24,16 +32,24 @@ final class BitVectorTests: XCTestCase {
     x.append(false)
     XCTAssertEqual(x.count, 2)
     XCTAssertEqual(x[0], false)
+    x.checkEquatableLaws()
+    x.checkNotEqual(BitVector())
+    x.checkNotEqual(BitVector(CollectionOfOne(true)))
+
     x = BitVector()
     x.append(true)
+    x.checkEquatableLaws()
     XCTAssertEqual(x.count, 1)
     XCTAssertEqual(x[0], true)
+    x.checkNotEqual(BitVector(CollectionOfOne(false)))
   }
 
   func test2() {
     var x = BitVector([false, false])
     x.checkBidirectionalCollectionLaws(expecting: [false, false])
     x.checkMutableCollectionLaws(expecting: [false, false], writing: [true, true])
+    x.checkEquatableLaws()
+    x.checkNotEqual(BitVector())
 
     x = BitVector([false, true])
     x.checkBidirectionalCollectionLaws(expecting: [false, true])
@@ -53,6 +69,12 @@ final class BitVectorTests: XCTestCase {
     var x = BitVector(source)
     x.checkBidirectionalCollectionLaws(expecting: source)
     x.checkMutableCollectionLaws(expecting: source, writing: source.lazy.map { !$0 })
+    x.checkEquatableLaws()
+    var y = x
+    y.append(true)
+    x.checkNotEqual(y)
+    x.append(false)
+    x.checkNotEqual(y)
   }
 
   static let testMax = Int(3 * sqrt(Double(UInt.bitWidth)))
@@ -84,6 +106,18 @@ final class BitVectorTests: XCTestCase {
       x.append(Self.nonRepeating[i])
       XCTAssert(x.elementsEqual(Self.nonRepeating[...i]))
     }
+  }
+
+  func testEquatable() {
+    var x = BitVector(Self.nonRepeating)
+    x.checkEquatableLaws()
+    var y = x
+
+    y.append(true)
+    x.checkNotEqual(y)
+
+    x.append(false)
+    x.checkNotEqual(y)
   }
 }
 
